@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-10-04 (session ownership and Rust search/diff boundaries reviewed)
+Date: 2026-10-11 (outgoing message guard and patch release reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -17,6 +17,7 @@ This document describes the current architecture that is directly verifiable fro
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
 | Chat hook | `src/plugin-handlers/chat-message-handler.ts` | Tracks user activity and routes slash-command text through the local hook registry. |
 | Text completion hook | `src/plugin-handlers/text-complete-handler.ts` | Blanks a known standalone MiMo thinking closer in finalized OpenCode 1 text parts (issue #50). |
+| Messages transform hook | `src/plugin-handlers/messages-guard-handler.ts` | Caps oversized outgoing message content before OpenCode 1 constructs the model request (PR #53). |
 | Command hook | `src/plugin-handlers/command-execute-handler.ts` | Starts an owned `/task` mission after OpenCode expands its command template; preserves user command overrides. |
 
 ## 2. Runtime Shape
@@ -76,6 +77,8 @@ The Commander prompt instructs the model to treat `[Compressed conversation sect
 OpenCode 1 calls `experimental.text.complete` after streaming a text part and before its final part update. Orchestrator blanks a text part only when its entire trimmed content is `</assistant-thinking></think>` (issue #50). Earlier `message.part.delta` events are already visible to consumers: OpenCode's append-only `run` renderer and ACP can retain the tag after the stored part is blanked. If processing stops before `text-end`, the host cleanup stores the unfinished text without calling this hook. Other plugins' text-completion hooks run sequentially over the same output, so their order can also change the final result. Reasoning parts are separate. OpenCode 2's `@opencode/plugin` 2.0.22 session hooks do not expose a text completion equivalent; this normalization is limited to the OpenCode 1 server entrypoint.
 
 OpenCode loads extensions. Orchestrator does not inspect or execute files in `.opencode/plugins`. Its internal `HookRegistry` is a small ordered adapter for owned callbacks: there is no dynamic metadata, topological sorting, dependency declaration, or retry configuration. Registration order in `src/hooks/index.ts` defines execution order; stop/continue errors, block/intercept outcomes, and prompt injection preserve the native handler boundaries.
+
+The outgoing message guard runs through OpenCode 1's messages-transform hook and OpenCode 2's session context hook. Text and reasoning text above 200,000 JavaScript string characters retain a prefix plus a truncation marker. Oversized inline image strings are replaced with an omission notice. Oversized tool file URIs become text content items, so providers never decode a notice as image/file bytes. Oversized serialized structured tool results become capped text; error results retain their error discriminator. Small structured results and files remain intact, as do standalone media parts, tool-call inputs, encrypted reasoning and provider metadata. This is a per-field safeguard, not a total token budget or a replacement for host compaction. The guard does not persist rewritten history; it mutates the outgoing hook messages.
 
 The custom web fetch/search/cache/code-search family and its document cache are removed. Native web tools remain owned by OpenCode and follow its permissions and availability. Existing cached documents and host dependency files are preserved. Remaining custom tools are the mission command adapter, ten search/Git/utility wrappers, four background-command tools, three AST/LSP tools, and seven task/TODO tools (25 total).
 
