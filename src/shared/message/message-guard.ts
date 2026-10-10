@@ -21,11 +21,15 @@ const TRUNCATION_NOTE = "\n...[truncated by message guard]";
 const OMITTED_PAYLOAD_NOTE = "[message guard omitted an oversized inline image/file payload of {size} chars]";
 const IMAGE_DATA_URI = /data:image\/[a-z0-9.+-]+;base64,/i;
 
+function omittedPayload(size: number): string {
+    return OMITTED_PAYLOAD_NOTE.replace("{size}", String(size));
+}
+
 /** Truncate a text value. Inline image payloads are dropped whole. */
 function capText(value: string): string {
     if (value.length <= MAX_MESSAGE_PART_CHARS) return value;
     if (IMAGE_DATA_URI.test(value)) {
-        return OMITTED_PAYLOAD_NOTE.replace("{size}", String(value.length));
+        return omittedPayload(value.length);
     }
     return value.slice(0, MAX_MESSAGE_PART_CHARS) + TRUNCATION_NOTE;
 }
@@ -40,14 +44,19 @@ function capField(target: Record<string, unknown>, key: string): boolean {
     return true;
 }
 
-/** Cap the text/uri fields of a tool-result content array. */
+/** File omissions use text parts because providers decode file URIs as media. */
 function capContentArray(value: unknown): boolean {
     if (!Array.isArray(value)) return false;
     let changed = false;
-    for (const item of value) {
+    for (const [index, item] of value.entries()) {
         if (!isRecord(item)) continue;
+        if (item.type === "file" && typeof item.uri === "string" && item.uri.length > MAX_MESSAGE_PART_CHARS) {
+            // Providers decode file URIs as media; an omission notice must be text.
+            value[index] = { type: "text", text: omittedPayload(item.uri.length) };
+            changed = true;
+            continue;
+        }
         if (capField(item, "text")) changed = true;
-        if (capField(item, "uri")) changed = true;
     }
     return changed;
 }
@@ -56,7 +65,22 @@ function capContentArray(value: unknown): boolean {
 function capToolResult(result: unknown): boolean {
     if (!isRecord(result)) return false;
     if (result.type === "content") return capContentArray(result.value);
-    return capField(result, "value");
+    if (typeof result.value === "string") return capField(result, "value");
+    if (result.type !== "json" && result.type !== "text" && result.type !== "error") return false;
+    const serialized = serializeResult(result.value);
+    if (serialized === undefined || serialized.length <= MAX_MESSAGE_PART_CHARS) return false;
+    // A truncated JSON fragment must not be presented as a structured result.
+    if (result.type !== "error") result.type = "text";
+    result.value = capText(serialized);
+    return true;
+}
+
+function serializeResult(value: unknown): string | undefined {
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return undefined;
+    }
 }
 
 /** Cap a legacy tool part's `state.output` and `state.content`. */
