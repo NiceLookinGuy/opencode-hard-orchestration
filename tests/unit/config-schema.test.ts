@@ -7,10 +7,15 @@ import {
     parseMissionLoopOptions,
 } from "../../src/core/config/options-schema.js";
 import { DEFAULT_MISSION_RUNTIME_OPTIONS } from "../../src/core/loop/mission-runtime-options.js";
+import { parseOrchestratorPluginOptions } from "../../src/core/config/plugin-options.js";
 
 const repoRoot = path.resolve(__dirname, "../..");
 
 describe("plugin options schema (Phase G)", () => {
+    it.each([undefined, true, false, "false", 0, null])("parses customRendering without coercing %s", value => {
+        expect(parseOrchestratorPluginOptions({ customRendering: value }).customRendering).toBe(value !== false);
+    });
+
     it("accepts zero concurrency limits consistently with runtime unlimited limits", () => {
         expect(OrchestratorOptionsSchema.safeParse({
             defaultConcurrency: 0, agentConcurrency: { Worker: 0 },

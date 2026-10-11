@@ -60,6 +60,7 @@ describe("concurrency config helpers", () => {
                 maxEvidenceEvents: 8,
             },
         })).toEqual({
+            customRendering: true,
             concurrency: {
                 agentConcurrency: { worker: 4 },
             },

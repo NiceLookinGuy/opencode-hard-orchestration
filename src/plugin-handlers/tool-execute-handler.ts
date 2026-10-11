@@ -23,10 +23,9 @@ export type ToolExecuteAfterOutput = Parameters<ToolExecuteAfterHook>[1];
 /**
  * Create tool.execute.after handler
  */
-export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
+export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext, customRendering = true) {
     const { sessions, directory } = ctx;
     const hooks = HookRegistry.getInstance();
-
     return async (
         toolInput: ToolExecuteAfterInput,
         toolOutput: ToolExecuteAfterOutput
@@ -35,12 +34,10 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
         if (!session?.active) return;
 
         const { stepDuration, totalElapsed } = advanceSessionStep(session);
-
         const toolArguments = readToolArgs(toolInput.args);
         recordToolCall(toolInput.sessionID, toolInput.tool);
         recordToolEvidence(toolInput.sessionID, toolInput.tool, toolArguments);
 
-        // Execute Hooks
         await hooks.executePostTool(
             {
                 sessionID: toolInput.sessionID,
@@ -52,7 +49,6 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
             toolArguments,
             toolOutput
         );
-
         log(`[tool.execute.after] Completed ${toolInput.tool}`, {
             sessionID: toolInput.sessionID,
             step: session.step,
@@ -60,8 +56,10 @@ export function createToolExecuteAfterHandler(ctx: ToolExecuteHandlerContext) {
             total: totalElapsed
         });
 
-        const currentTime = formatTimestamp();
-        toolOutput.output += `\n\n[${currentTime}] Step ${session.step} | This step: ${stepDuration} | Total: ${totalElapsed}`;
+        if (customRendering) {
+            const currentTime = formatTimestamp();
+            toolOutput.output += `\n\n[${currentTime}] Step ${session.step} | This step: ${stepDuration} | Total: ${totalElapsed}`;
+        }
     };
 }
 
@@ -83,4 +81,3 @@ function advanceSessionStep(session: PluginSessionState): { stepDuration: string
 function readToolArgs(value: unknown): Record<string, unknown> {
     return isRecord(value) ? value : {};
 }
-

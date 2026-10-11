@@ -13,7 +13,7 @@ import { registerV2Tools } from "./tool-adapter.js";
 import { registerV2Commands } from "./command-adapter.js";
 import { registerV2Agents } from "./agent-adapter.js";
 import { ContextLimitResolver } from "../core/context/context-limit-resolver.js";
-import { parseAgentTemperatures } from "../core/config/options-schema.js";
+import { parseAgentTemperatures, parseCustomRendering } from "../core/config/options-schema.js";
 import { isRecord } from "../shared/core/guards.js";
 import { truncateOversizedMessageParts } from "../shared/message/message-guard.js";
 
@@ -68,7 +68,7 @@ async function disposeV2(registrations: Registration[], stopEvents: (() => void)
 async function registerHooks(context: Context, handlerContext: PluginRuntime["handlerContext"], temperatures: Readonly<Record<string, number>>, registrations: Registration[]): Promise<void> {
     const chat = createChatMessageHandler(handlerContext);
     const before = createToolExecuteBeforeHandler(handlerContext);
-    const after = createToolExecuteAfterHandler(handlerContext);
+    const after = createToolExecuteAfterHandler(handlerContext, parseCustomRendering(context.options.customRendering));
     const compact = createSessionCompactingHandler(handlerContext);
     const system = createSystemTransformHandler(handlerContext);
     const { sessions } = handlerContext;
@@ -225,4 +225,3 @@ function writeResultContent(result: { content?: unknown }, original: string, upd
 function isTextContent(value: unknown): value is { type: "text"; text: string } {
     return isRecord(value) && value.type === "text" && typeof value.text === "string";
 }
-

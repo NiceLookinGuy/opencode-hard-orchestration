@@ -63,6 +63,21 @@ describe("createToolExecuteAfterHandler", () => {
         expect(getCircuitState("session-1")?.toolCallHistory).toEqual(["write"]);
         expect(getUnverifiedFiles("session-1")).toEqual(["src/a.ts"]);
     });
+
+    it("disables display decoration while retaining tracking and post-tool output changes", async () => {
+        const executePostTool = vi.fn(async (_ctx, _tool, _args, output: ToolExecuteAfterOutput) => {
+            output.output = "redacted by post-tool hook";
+        });
+        vi.spyOn(HookRegistry, "getInstance").mockReturnValue({ executePostTool } as unknown as HookRegistry);
+        const context = createContext();
+        const output = createToolOutput();
+        await createToolExecuteAfterHandler(context, false)(createToolInput(), output);
+        expect(output.output).toBe("redacted by post-tool hook");
+        expect(context.sessions.get("session-1")?.step).toBe(1);
+        expect(getCircuitState("session-1")?.toolCallHistory).toEqual(["write"]);
+        expect(getUnverifiedFiles("session-1")).toEqual(["src/a.ts"]);
+        expect(executePostTool).toHaveBeenCalledOnce();
+    });
 });
 
 function createToolInput(): ToolExecuteAfterInput {

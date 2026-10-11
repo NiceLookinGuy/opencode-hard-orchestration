@@ -34,6 +34,7 @@ import {
 // ============================================================================
 
 const OrchestratorServerPlugin: Plugin = async (input, options) => {
+    const pluginOptions = parseOrchestratorPluginOptions(options);
     const runtime = initializePluginRuntime(input, options);
     const { directory, handlerContext, asyncAgentTools, shutdownManager } = runtime;
 
@@ -43,12 +44,12 @@ const OrchestratorServerPlugin: Plugin = async (input, options) => {
         event: createEventHandler(handlerContext),
         [PLUGIN_HOOKS.CHAT_MESSAGE]: createChatMessageHandler(handlerContext),
         "command.execute.before": createCommandExecuteBeforeHandler(handlerContext),
-        [PLUGIN_HOOKS.CHAT_PARAMS]: createChatParamsHandler(parseOrchestratorPluginOptions(options).agentTemperatures),
+        [PLUGIN_HOOKS.CHAT_PARAMS]: createChatParamsHandler(pluginOptions.agentTemperatures),
         [PLUGIN_HOOKS.TOOL_EXECUTE_BEFORE]: createToolExecuteBeforeHandler(handlerContext),
-        [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext),
+        [PLUGIN_HOOKS.TOOL_EXECUTE_AFTER]: createToolExecuteAfterHandler(handlerContext, pluginOptions.customRendering),
         [PLUGIN_HOOKS.EXPERIMENTAL_SESSION_COMPACTING]: createSessionCompactingHandler(handlerContext),
         [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_SYSTEM_TRANSFORM]: createSystemTransformHandler(handlerContext),
-        [PLUGIN_HOOKS.EXPERIMENTAL_TEXT_COMPLETE]: createTextCompleteHandler(),
+        [PLUGIN_HOOKS.EXPERIMENTAL_TEXT_COMPLETE]: createTextCompleteHandler(pluginOptions.customRendering),
         [PLUGIN_HOOKS.EXPERIMENTAL_CHAT_MESSAGES_TRANSFORM]: createMessagesGuardHandler(),
         dispose: () => shutdownManager.shutdown(),
     };

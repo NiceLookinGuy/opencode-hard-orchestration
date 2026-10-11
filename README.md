@@ -65,6 +65,35 @@ See the [options schema](opencode-orchestrator.schema.json) for all settings. Re
 
 If commands are missing, check `opencode plugin list` on OpenCode 2 or `opencode debug config` on OpenCode 1.
 
+### OpenChamber and other WebUIs
+
+Since 2.0.15, set `customRendering` to `false` to disable Orchestrator's display changes. This removes the timestamp/step/duration footer from tool results and preserves completed assistant text without the OpenCode 1 standalone thinking-tag cleanup. The default is `true` for existing installations.
+
+For OpenCode 1 (including WebUIs backed by OpenCode 1), replace the existing entry in `opencode.jsonc`:
+
+```jsonc
+{
+  "plugin": [
+    ["opencode-orchestrator", { "customRendering": false }]
+  ]
+}
+```
+
+For OpenCode 2:
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "opencode-orchestrator",
+      "options": { "customRendering": false }
+    }
+  ]
+}
+```
+
+Keep a single entry for the package, merge this option with any existing options, and restart the OpenCode backend after saving. It applies to newly processed results; previously stored footers remain in the conversation history. Mission tracking, memory, secret redaction, and the outgoing message-size guard remain active. The option controls Orchestrator's presentation changes; OpenCode and the WebUI own their rendering.
+
 ## Contributing
 
 Pull requests from anyone are appreciated. See [CONTRIBUTING.md](https://github.com/agnusdei1207/opencode-orchestrator/blob/main/CONTRIBUTING.md) for development and test commands. If you'd like maintainer access, please [open an issue](https://github.com/agnusdei1207/opencode-orchestrator/issues/new); I'm happy to grant it.

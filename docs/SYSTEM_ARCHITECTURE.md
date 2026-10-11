@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-10-11 (outgoing message guard and patch release reviewed)
+Date: 2026-10-11 (custom rendering opt-out and outgoing message guard reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -127,8 +127,11 @@ parse the same option fields; OpenCode owns installation and configuration.
 
 Current option readers:
 
+`customRendering: false` (issue #52, since 2.0.15) bypasses the tool-result timing footer in both host entrypoints and the standalone thinking-closer normalization in OpenCode 1. The Zod field and tolerant runtime parser default to `true`; invalid non-boolean values retain that default. The value is captured per handler instance, not in global state. Tool-call evidence, session counters, post-tool hooks (including secret redaction), and outgoing message guards still execute. OpenCode 2 has no corresponding text-completion hook. Restart the backend to apply changed options; stored historical results are not rewritten. README contains examples for both host configuration formats.
+
 | Option | File | Effect |
 | --- | --- | --- |
+| `customRendering` | `src/core/config/options-schema.ts`, `src/index.ts`, `src/v2/setup.ts` | Enables tool-result timing footers and OpenCode 1 standalone thinking-tag cleanup; defaults to `true`. |
 | `agentConcurrency` | `src/core/agents/concurrency-config.ts` | Per-agent concurrency overrides. |
 | `providerConcurrency` | `src/core/agents/concurrency-config.ts` | Provider-level concurrency overrides. |
 | `modelConcurrency` | `src/core/agents/concurrency-config.ts` | Model-level concurrency overrides. |
