@@ -65,7 +65,7 @@ describe("createToolExecuteAfterHandler", () => {
     });
 
     it("disables display decoration while retaining tracking and post-tool output changes", async () => {
-        const executePostTool = vi.fn(async (_ctx, _tool, _args, output: ToolExecuteAfterOutput) => {
+        const executePostTool = vi.fn(async (_ctx: unknown, _tool: string, _args: Record<string, unknown>, output: ToolExecuteAfterOutput) => {
             output.output = "redacted by post-tool hook";
         });
         vi.spyOn(HookRegistry, "getInstance").mockReturnValue({ executePostTool } as unknown as HookRegistry);
