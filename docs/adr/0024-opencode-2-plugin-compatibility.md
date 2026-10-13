@@ -2,7 +2,11 @@
 
 Date: 2026-09-20
 Status: Implemented
-Issue: https://github.com/agnusdei1207/opencode-orchestrator/issues/42
+
+Fork note: Retained as history. The hybrid `{ id, server, setup }` export
+remains, but the v2 boundary now registers only the agent transform and the
+context message guard; the tools, commands, session hooks, tool hooks, and
+event subscription described below were removed in the fork (ADR-0026).
 
 ## Context
 

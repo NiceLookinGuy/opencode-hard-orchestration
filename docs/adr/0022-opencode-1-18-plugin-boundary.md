@@ -4,6 +4,11 @@ Date: 2026-09-15 16:25 KST
 Status: Implemented
 Source: `docs/plans/2026-09-15-opencode-compatibility-refactor.md` (completed plan removed 2026-10-03)
 
+Fork note: Retained as history. The fork removed the `./server` subpath export
+and the runtime-separation modules; the package now ships a single root export
+built into the committed `dist/` (ADR-0026). The Node.js `>=24.15.0` decision
+still applies.
+
 ## Context
 
 OpenCode's current package loader resolves an explicit `./server` export before

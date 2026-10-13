@@ -1,8 +1,14 @@
 # ADR-0021: A Minimal Mission Plugin for OpenCode
 
 Date: 2026-09-14 17:41 KST
-Status: Accepted — incremental implementation in progress
+Status: Superseded by ADR-0026
 Source: User-requested comparison, intent, and reduction plan; updated to prioritize removing existing code over adding subsystems.
+
+Fork note: Historical record of the pre-fork project. References below to
+missions, task tools, commands, Planner/Worker/Reviewer, Rust components,
+deleted documents, and lower-numbered ADRs describe the upstream lineage;
+those surfaces were removed in the fork (ADR-0026) and remain recoverable in
+git history.
 
 ## Intent: our identity
 

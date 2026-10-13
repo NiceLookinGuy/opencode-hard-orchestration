@@ -1,97 +1,86 @@
-# Agent Memory - OCO Session
+# Agent Memory — opencode-hard-orchestration
 
-Last updated: 2026-10-13 KST
+Last updated: 2026-10-13 23:13 KST
 
 ## Current task
 
-Hard orchestrator defaults (user-approved): Commander permission gate, embedded
-delegate-only Commander prompt, unconditional `default_agent = "Commander"`,
-and native subagent unblocking (explore/general/scout/plan/build). Recorded as
-ADR-0025 (partial reversal of ADR-0021). TS-only; no version bump; no Rust.
-Implemented and committed locally as 373486f (NOT pushed). No repo work remains.
+Fork rework of `agnusdei1207/opencode-orchestrator` @ 2.0.15 into
+`opencode-hard-orchestration` 0.1.0 is complete locally (strip commit
+`1c173e6`, docs/meta phase committed on `main`). Nothing is pushed. Next
+phase is publishing the fork.
 
 ## Last completed step
 
-- Baseline before edits: npm ci, build, 127 test files / 1,145 tests passed.
-- `src/plugin-handlers/config-handler.ts`: exported `COMMANDER_DEFAULT_PERMISSION`
-  (`{"*":"deny","task":"allow","question":"allow"}`), `NATIVE_SUBAGENT_TYPES`,
-  `NATIVE_DEMOTED_TYPES`; `defineAgent` now merges defaults < global < agent
-  permission; `unblockNativeSubagentTypes` strips `hidden:true`/`disable:true`
-  and forces plan/build `mode:"subagent"` (creates `{mode:"subagent"}` entries);
-  handler forces `default_agent`.
-- New `src/agents/prompts/commander-delegate.ts`: byte-verified copy of
-  `/Users/matth/.config/opencode/instructions/commander-only-delegate.md` with
-  only the plan/build Mode cells changed to `subagent` (4,388 chars, verified
-  programmatically against the source).
-- `src/agents/commander.ts`: prompt is now `COMMANDER_DELEGATE_PROMPT`;
-  `CORE_PHILOSOPHY` stays in `prompts/shared/philosophy.ts` for manager.ts:93.
-- `src/v2/agent-adapter.ts` imports the shared native-type constants; unhides
-  present native agents, demotes plan/build, calls `editor.default("Commander")`;
-  absent types are skipped (v2 cannot create agents, ADR-0024). No v2 permission
-  gate: `Agent.Info.permissions` is action/resource/effect with no equivalent.
-- Tests updated: config-handler (forced default, gate precedence, native
-  unblocking, capitalized names untouched), prompt-consistency (Commander
-  delegate-only; M/T/S scope now Planner/Reviewer; mission continuity scoped to
-  subagents), agent-definition (delegate-only assertions; .opencode scoped to
-  subagents), v2-plugin (createV2Context helper with get/default; new native
-  unblock test), Commander snapshot regenerated (only that snapshot changed).
-- Docs: new `docs/adr/0025-hard-orchestrator-defaults.md`; ADR index row and
-  0021 annotations; SYSTEM_ARCHITECTURE runtime shape/mermaid/prompt/permission
-  sections; README what-it-does/use/configuration. Schema untouched.
-- Verification: build passes (tsc declarations); full suite 127 files /
-  1,151 tests passed; coverage statements 91.56%, branches 82.68%, functions
-  93.7%, lines 93.72% (thresholds 85/72/88/85). No landing-mirror drift.
-- Staged the listed files and created local commit 373486f on `main` (no push).
+- Phase 1b docs/meta (local, not pushed): README rewritten for the fork
+  (MIT badge only, git installs, no npm/options/missions); LICENSE keeps the
+  original text and adds "Copyright (c) 2026 NiceLookinGuy (fork
+  modifications)"; CONTRIBUTING.md, `user-prompt/`, landing files
+  (`public/**`, root `index.html`, `css/`, `js/`, `assets/`, `favicon.svg`,
+  `.nojekyll`) deleted.
+- docs pruned to ADR-0021 (superseded by ADR-0026), ADR-0022/0024/0025
+  (fork annotations; 0024 upstream issue link stripped), new
+  `docs/adr/0026-hard-orchestration-fork-scope.md`, ADR index rewritten.
+  Deleted: SYSTEM_ARCHITECTURE, KNOWLEDGE-SEARCH-DEEP-DIVE,
+  DEVELOPERS_NOTE, assets, histories, release, reviews, ADRs 0001-0020/0023.
+- Baseline and post-change `npm test`: 15 files / 86 tests pass.
+- Evidence for doc claims: forced `default_agent` and gate in
+  `src/plugin-handlers/config-handler.ts:25-29,137`; delegate-only prompt in
+  `src/agents/commander.ts`; v2 adapter `src/v2/agent-adapter.ts`; guards in
+  `src/index.ts:20-21`, `src/v2/setup.ts:28-32`,
+  `src/plugin-handlers/text-complete-handler.ts`.
 
 ## Next exact step
 
-None for repo work. Optional follow-ups only:
-
-- Install the updated plugin on the machine (local deploy) if desired.
-- v2 permission-gate gap (ADR-0024/0025): `Agent.Info.permissions` is
-  action/resource/effect with no equivalent, so no v2 gate; revisit if the host
-  adds one.
+Phase 2 (remote, explicit user request required): create
+`NiceLookinGuy/opencode-hard-orchestration`, push `main`, verify the v1
+config git spec and v2 `opencode plugin add github:...` install forms against
+the real repo.
 
 ## Incomplete items and why
 
-- None. Follow-ups recorded in ADR-0025: mission system-transform prompt still
-  injects task/background-tool text during active missions (pre-existing);
-  default_agent + user-hidden Commander interaction is host-owned.
+- No known repo gaps. v2 permission gate is impossible with the current
+  `Agent.Info.permissions` shape (ADR-0024/0025); v2 has no text-complete hook,
+  so thinking-tag cleanup is v1-only.
 
 ## Key decisions
 
-- Gate precedence: registration defaults < global permission < agent-specific
-  permission; non-Commander agents are byte-identical to previous behavior.
-- Native type constants live in config-handler and are imported by the v2
-  adapter (single source of truth; no cycle; v2 pulls no new runtime surface).
-- Commander description left unchanged per instruction, even though the prompt
-  is delegate-only now.
-- v2 skips absent native agents instead of inventing them; no v2 gate.
+- Strip scope: keep only Commander registration (forced default, delegate-only
+  prompt, hard gate), native subagent unblocking, and the two reliability
+  guards (oversized tool-result truncation, PR #53 rationale; v1 thinking-tag
+  cleanup, issue #50 rationale).
+- Removed: missions/mission loop, task tools, slash commands, plugin tools,
+  options system, knowledge/memory subsystems, Rust CLI, landing site,
+  `/server` split runtime.
+- `dist/` stays committed so git installs run without a build step; no npm
+  publish. Version reset to 0.1.0.
+- Minimal `customRendering` boolean read retained in `src/index.ts:16` as a
+  deliberate single-option exception (WebUI rendering regression, issue #52),
+  documented in ADR-0026.
 
 ## Rejected alternatives
 
-- Local duplicate constants in the v2 adapter (divergence risk).
-- v2 permission mapping via `permissions` array (no verified equivalent).
-- Changing agent descriptions or version fields (out of scope by instruction).
+- Keeping mission/task machinery or the options system (contradicts the fork).
+- Publishing to npm (git-only distribution decided).
+- Deleting `customRendering` entirely (would regress WebUI rendering).
+- Documenting an unverified raw v2 config example for git specs (only the
+  verified v2 CLI form is documented).
 
 ## Known risks
 
-- Users who explicitly hide Commander or set agent.Commander.hidden may get
-  host-defined default-agent behavior (ADR-0025 limitation).
-- The old compressed-conversation guidance is gone from the Commander prompt;
-  subagent prompts and the mission loop are unchanged.
-- Covered branches in the v2 adapter depend on host-created native agents; both
-  present and absent paths are unit-tested.
+- v2 gate gap: on OpenCode 2 installing the plugin does not restrict
+  Commander's tools; only forced default and subagent unblocking apply.
+- Users who explicitly hide Commander may get host-defined default-agent
+  behavior (ADR-0025 limitation).
+- Kept pre-fork ADRs contain historical references to removed modules; the
+  annotations in each file and ADR-0026 explain this.
 
 ## Files to open first in the next session, in order
 
 1. AGENTS.md
 2. AGENT_MEMORY.md
-3. src/plugin-handlers/config-handler.ts
-4. src/agents/prompts/commander-delegate.ts
-5. src/v2/agent-adapter.ts
-6. tests/unit/config-handler.test.ts
-7. tests/unit/v2-plugin.test.ts
+3. docs/adr/0026-hard-orchestration-fork-scope.md
+4. src/index.ts
+5. src/plugin-handlers/config-handler.ts
+6. src/v2/setup.ts
+7. README.md
 8. docs/adr/0025-hard-orchestrator-defaults.md
-9. README.md
-10. docs/SYSTEM_ARCHITECTURE.md

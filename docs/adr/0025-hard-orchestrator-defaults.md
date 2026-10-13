@@ -30,6 +30,8 @@ automatic default-agent takeover and build/plan demotion.
    table rows now say `subagent`. The composed core-philosophy, working
    discipline, and mission-contract fragments are no longer included in the
    Commander prompt; they remain for Planner, Worker, and Reviewer.
+   **[Planner, Worker, and Reviewer were removed in the fork; only Commander
+   remains (ADR-0026).]**
 3. `default_agent` is forced to `Commander` on every install (the v1.6.3
    behavior), overriding any user `default_agent`.
 4. The native OpenCode agent types `explore`, `general`, `scout`, `plan`, and
@@ -37,10 +39,18 @@ automatic default-agent takeover and build/plan demotion.
    stripped, and `plan`/`build` are forced to `mode: "subagent"` (entries are
    created when absent in OpenCode 1 config). Planner, Worker, and Reviewer stay
    hidden presets, and capitalized names such as `Plan` are untouched.
+   **[Planner, Worker, and Reviewer were removed in the fork (ADR-0026).]**
 5. Agent descriptions are unchanged. Only the lowercase native names are
    normalized.
 
 ## Consequences
+
+Fork update (ADR-0026): the guard hooks established here were kept — oversized
+tool-result truncation (OpenCode 1 messages-transform hook and OpenCode 2
+context hook) and the OpenCode 1 thinking-tag cleanup (PR #53 and issue #50
+rationale). Everything else the fork did not need was removed, including the
+mission system-transform handler, so the prompt-injection limitation recorded
+below no longer exists.
 
 OpenCode 1's config hook performs all five changes. OpenCode 2's agent transform
 can only update agents the host already created (ADR-0024): absent native types
@@ -61,6 +71,7 @@ Known deviations and limitations:
   background-task text during an active mission (`buildMissionLoopSystemPrompt`,
   `buildBackgroundTasksPrompt`), which contradicts the delegate-only prompt.
   This is pre-existing and tracked as follow-up work.
+  **[Resolved by ADR-0026: the mission system-transform handler was removed.]**
 - Unhiding native types is skipped on OpenCode 2 when the host does not expose
   them; the v1 path creates only `plan`/`build` entries, never `explore`,
   `general`, or `scout`.

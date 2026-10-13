@@ -1,103 +1,78 @@
 <div align="center">
-  <h1>OpenCode Orchestrator</h1>
-  <p>Mission continuity for OpenCode.</p>
+  <h1>OpenCode Hard Orchestration</h1>
+  <p>Orchestrator-only Commander for OpenCode. Delegate, distill, done.</p>
 
   [![MIT License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
-  [![npm](https://img.shields.io/npm/v/opencode-orchestrator.svg)](https://www.npmjs.com/package/opencode-orchestrator)
-
-  <!-- VERSION:START -->
-  **Version:** `2.0.15`
-  <!-- VERSION:END -->
 </div>
 
 ## What it does
 
-OpenCode Orchestrator keeps a task and its unfinished work connected across turns. Commander is installed as the default agent and delegates every request through OpenCode's native `task` tool: it can only delegate to the native agents (`explore`, `general`, `scout`, `plan`, `build`) and ask the user a question. Planner, Worker, and Reviewer remain available as hidden presets. Mission state is stored in the project's `.opencode/` directory.
+Installing the plugin turns every OpenCode session into a delegation loop:
+
+- **Forced default Commander.** `default_agent` is set to `Commander` on install, so requests land on the orchestrator instead of a native agent.
+- **Permission hard gate.** Commander is registered with `{"*": "deny", "task": "allow", "question": "allow"}` and a delegate-only system prompt: it can call the native `task` tool to delegate and `question` to ask you, and nothing else.
+- **Native subagents unblocked.** `explore`, `general`, and `scout` are unhidden, and `plan`/`build` are demoted to subagents so Commander can hand research and implementation to them.
+- **User overrides win.** The gate is a registration default. Global `permission` and `agent.Commander.permission` override it.
+- **OpenCode 2 limitation.** The v2 adapter can only update agents the host already created and has no `Agent.Info.permissions` equivalent for the gate, so forced default and subagent unblocking apply but the gate does not.
+
+No missions, no task management, no plugin tools, no slash commands.
+
+## Why this fork / rework
+
+This is a rework of [agnusdei1207/opencode-orchestrator](https://github.com/agnusdei1207/opencode-orchestrator) that keeps one workflow: the Commander as an orchestrator-only layer. The trade is deliberate: the Commander spends more tokens on delegation and distillation, and in exchange produces more distilled outputs and higher work quality. Intentionally removed from the upstream: missions, task tools, slash commands, the Rust CLI, the landing site, and the plugin options (`agentConcurrency`, `missionLoop`, ...).
 
 ## Install
 
-Requires Node.js `>=24.15.0` and OpenCode. On OpenCode 2, let OpenCode install and manage the plugin:
+Requires Node.js `>=24.15.0`. Not published to npm; install from git. The repository commits its `dist/` build so git installs work without a build step.
 
-```bash
-opencode plugin add opencode-orchestrator
+OpenCode 1 — add to `opencode.json(c)`:
+
+```jsonc
+{
+  "plugin": ["opencode-hard-orchestration@git+https://github.com/NiceLookinGuy/opencode-hard-orchestration.git#main"]
+}
+```
+
+OpenCode 2 — install through the CLI:
+
+```sh
+opencode plugin add github:NiceLookinGuy/opencode-hard-orchestration
 opencode plugin list
 ```
 
-To remove it, run `opencode plugin remove opencode-orchestrator`.
-
-For OpenCode 1 versions 1.18.29 and newer, add `"plugin": ["opencode-orchestrator"]` to your OpenCode `opencode.json(c)`. OpenCode installs configured npm plugins when it starts. The optional `orchestrator` terminal CLI is available separately with `npm install -g opencode-orchestrator`.
+To remove: delete the `opencode.json(c)` entry on OpenCode 1, or run `opencode plugin remove <installed-target>` on OpenCode 2 (the target shown by `opencode plugin list`).
 
 ## Use
 
-Send a request directly; Commander is already the selected default agent and delegates the work. Or start a continuing mission:
-
-```text
-/task "Implement the feature and verify it"
-```
-
-| Command | Purpose |
-| --- | --- |
-| `/task <objective>` | Start a persisted mission, replacing an active mission in the same project |
-| `/plan <objective>` | Prepare a plan without implementing it |
-| `/stop` or `/cancel` | Stop the active mission |
-
-Commander asks focused clarifying questions before delegating. The native `plan` and `build` agents are demoted to subagents; `explore`, `general`, and `scout` are made visible for delegated research.
-Replacing a mission stops its previous session and delegated work before the new goal starts. Existing project TODO and checklist files remain available for the new mission to reconcile.
+Send a request. Commander interviews you with `question` until the task is clear, then delegates through the native `task` tool. There are no slash commands. Its delegate pool is `explore`, `general`, `scout`, plus demoted `plan` and `build`.
 
 ## Configuration
 
-The default installation needs no extra options. Installing the plugin forces `default_agent` to `Commander` and gives Commander the permission gate `{"*": "deny", "task": "allow", "question": "allow"}`, so it can only delegate and ask questions. Global `permission` and `agent.Commander.permission` settings override the gate; other agents keep their existing permissions. Native `plan`/`build` are demoted to subagents and `explore`/`general`/`scout` are unhidden.
+No plugin options. Installing the plugin forces `default_agent = "Commander"` and registers the gate `{"*": "deny", "task": "allow", "question": "allow"}`. Permission precedence is registration default < global `permission` < `agent.Commander.permission`, so your overrides always win. Permissions of other agents are untouched.
 
-On OpenCode 2, set options in `opencode.jsonc` using the package object:
+## Reliability hooks
 
-```jsonc
-{
-  "plugins": [
-    {
-      "package": "opencode-orchestrator",
-      "options": {
-        "agentConcurrency": { "worker": 4 }
-      }
-    }
-  ]
-}
+- **Oversized tool-result truncation.** Parts over 200,000 characters are capped before the request reaches the model, so one huge tool result cannot break every later turn. Runs on OpenCode 1 (`experimental.chat.messages.transform`) and OpenCode 2 (session `context` hook).
+- **Thinking-tag cleanup.** On OpenCode 1 only, a finalized text part that is exactly `</assistant-thinking></think>` is blanked.
+
+## Development
+
+```sh
+npm ci
+npm run build   # esbuild bundle + tsc declarations into dist/
+npm test        # vitest
 ```
 
-See the [options schema](opencode-orchestrator.schema.json) for all settings. Replace a plain string entry with the object when adding options; keep only one entry for this package. OpenCode 1 uses a `plugin` array and `["opencode-orchestrator", { ...options }]` for options.
+`dist/` is committed because git installs execute the built output; rebuild and commit it alongside source changes.
 
-If commands are missing, check `opencode plugin list` on OpenCode 2 or `opencode debug config` on OpenCode 1.
+## Fork notes / attribution
 
-### OpenChamber and other WebUIs
+Forked from [agnusdei1207/opencode-orchestrator](https://github.com/agnusdei1207/opencode-orchestrator) at version 2.0.15 (MIT). Divergences from the upstream:
 
-Since 2.0.15, set `customRendering` to `false` to disable Orchestrator's display changes. This removes the timestamp/step/duration footer from tool results and preserves completed assistant text without the OpenCode 1 standalone thinking-tag cleanup. The default is `true` for existing installations.
+- Renamed to `opencode-hard-orchestration`, version reset to 0.1.0, git-only distribution.
+- Removed missions and the mission loop, task/background tools, slash commands, the options system, the knowledge/memory subsystems, the Rust CLI, and the landing site.
+- Kept the hard-orchestration core: forced default Commander, delegate-only prompt, permission gate, native subagent unblocking, and the two reliability guards.
 
-For OpenCode 1 (including WebUIs backed by OpenCode 1), replace the existing entry in `opencode.jsonc`:
+## License
 
-```jsonc
-{
-  "plugin": [
-    ["opencode-orchestrator", { "customRendering": false }]
-  ]
-}
-```
-
-For OpenCode 2:
-
-```jsonc
-{
-  "plugins": [
-    {
-      "package": "opencode-orchestrator",
-      "options": { "customRendering": false }
-    }
-  ]
-}
-```
-
-Keep a single entry for the package, merge this option with any existing options, and restart the OpenCode backend after saving. It applies to newly processed results; previously stored footers remain in the conversation history. Mission tracking, memory, secret redaction, and the outgoing message-size guard remain active. The option controls Orchestrator's presentation changes; OpenCode and the WebUI own their rendering.
-
-## Contributing
-
-Pull requests from anyone are appreciated. See [CONTRIBUTING.md](https://github.com/agnusdei1207/opencode-orchestrator/blob/main/CONTRIBUTING.md) for development and test commands. If you'd like maintainer access, please [open an issue](https://github.com/agnusdei1207/opencode-orchestrator/issues/new); I'm happy to grant it.
-
-[MIT License](LICENSE) © agnusdei1207
+[MIT](LICENSE) © agnusdei1207 and NiceLookinGuy (fork modifications)
