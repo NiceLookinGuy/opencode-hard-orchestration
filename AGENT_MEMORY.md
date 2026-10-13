@@ -8,6 +8,7 @@ Hard orchestrator defaults (user-approved): Commander permission gate, embedded
 delegate-only Commander prompt, unconditional `default_agent = "Commander"`,
 and native subagent unblocking (explore/general/scout/plan/build). Recorded as
 ADR-0025 (partial reversal of ADR-0021). TS-only; no version bump; no Rust.
+Implemented and committed locally as 373486f (NOT pushed). No repo work remains.
 
 ## Last completed step
 
@@ -40,12 +41,16 @@ ADR-0025 (partial reversal of ADR-0021). TS-only; no version bump; no Rust.
 - Verification: build passes (tsc declarations); full suite 127 files /
   1,151 tests passed; coverage statements 91.56%, branches 82.68%, functions
   93.7%, lines 93.72% (thresholds 85/72/88/85). No landing-mirror drift.
+- Staged the listed files and created local commit 373486f on `main` (no push).
 
 ## Next exact step
 
-Stage the listed files and create the local commit on `main` (conventional
-message, no push). After committing, report files, commands, coverage, hash,
-deviations, and confidence.
+None for repo work. Optional follow-ups only:
+
+- Install the updated plugin on the machine (local deploy) if desired.
+- v2 permission-gate gap (ADR-0024/0025): `Agent.Info.permissions` is
+  action/resource/effect with no equivalent, so no v2 gate; revisit if the host
+  adds one.
 
 ## Incomplete items and why
 
