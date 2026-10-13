@@ -77,18 +77,26 @@ describe("Agent Definitions", () => {
             expect(commander.canBash).toBe(true);
         });
 
-        it("should include core philosophy in system prompt", () => {
-            expect(commander.systemPrompt).toContain("Explore → Learn → Adapt → Act");
+        it("should use the delegate-only Commander prompt", () => {
+            expect(commander.systemPrompt).toContain("COMMANDER: THINK AND DELEGATE ONLY");
+            expect(commander.systemPrompt).toContain("You CANNOT read files, run commands, edit code");
+            expect(commander.systemPrompt).toContain("ONLY use the `task` tool");
         });
 
-        it("should make delegation and review optional", () => {
-            expect(commander.systemPrompt).toContain("Delegation and independent review are optional");
+        it("should delegate discovery and implementation to native subagents", () => {
+            expect(commander.systemPrompt).toContain("Delegate code understanding to `explore`");
+            expect(commander.systemPrompt).toContain("Delegate implementation to `build`");
+            expect(commander.systemPrompt).toContain("ALWAYS break work into focused subtasks");
         });
 
-        it("should NOT use parallel scouts (direct discovery instead)", () => {
-            // After refactoring, Commander should use direct discovery
+        it("should present plan and build as subagent types", () => {
+            expect(commander.systemPrompt).toContain("| **plan** | subagent |");
+            expect(commander.systemPrompt).toContain("| **build** | subagent |");
+        });
+
+        it("should NOT use parallel scouts (delegated discovery instead)", () => {
             expect(commander.systemPrompt).not.toContain("LAUNCH Parallel Scouts");
-            expect(commander.systemPrompt).toContain("Handle simple tasks directly");
+            expect(commander.systemPrompt).not.toContain("Handle simple tasks directly");
         });
     });
 
@@ -188,11 +196,12 @@ describe("Agent Definitions", () => {
             }
         });
 
-        it("should reference shared paths", () => {
-            for (const [name, agent] of Object.entries(AGENTS)) {
-                // All agents should know about .opencode paths
+        it("should reference shared paths in subagent prompts", () => {
+            const subagentNames = [AGENT_NAMES.PLANNER, AGENT_NAMES.WORKER, AGENT_NAMES.REVIEWER];
+            for (const name of subagentNames) {
+                // Subagents still know about .opencode mission state; Commander delegates.
                 expect(
-                    agent.systemPrompt.includes(".opencode"),
+                    AGENTS[name].systemPrompt.includes(".opencode"),
                     `${name} should reference .opencode`
                 ).toBe(true);
             }
@@ -204,9 +213,9 @@ describe("Agent Definitions", () => {
     // ========================================================================
 
     describe("agent hierarchy", () => {
-        it("should give Commander ownership of the goal", () => {
+        it("should make Commander command rather than reason", () => {
             const commander = AGENTS[AGENT_NAMES.COMMANDER];
-            expect(commander.systemPrompt).toContain("Own the user's goal");
+            expect(commander.systemPrompt).toContain("you command, they reason");
         });
 
         it("should define Planner, Worker, Reviewer as specialized subagents", () => {

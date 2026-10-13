@@ -92,7 +92,7 @@ describe("Prompt Consistency Guards", () => {
             expect(prompt, `${name}: legacy P-level TODO ids`).not.toMatch(/\bP1\.\d/);
         }
         // The agents that create or update todo.md must know the canonical scheme.
-        for (const name of [AGENT_NAMES.COMMANDER, AGENT_NAMES.PLANNER, AGENT_NAMES.REVIEWER]) {
+        for (const name of [AGENT_NAMES.PLANNER, AGENT_NAMES.REVIEWER]) {
             const prompt = AGENTS[name].systemPrompt;
             expect(prompt, `${name}: must teach M/T/S schema`).toMatch(/\bM1\b/);
             expect(prompt, `${name}: must teach M/T/S schema`).toMatch(/\bS1\.\d\.\d/);
@@ -145,11 +145,11 @@ describe("Prompt Consistency Guards", () => {
         }
     });
 
-    it("lets Commander implement and verify simple tasks directly", () => {
+    it("keeps Commander delegate-only", () => {
         const prompt = AGENTS[AGENT_NAMES.COMMANDER].systemPrompt;
-        expect(prompt).toContain("Handle simple tasks directly");
-        expect(prompt).toContain("Delegation and independent review are optional");
-        expect(prompt).not.toMatch(/NEVER do implementation|only (?:the )?Reviewer (?:can|may|has)|must rely on.*Reviewer/i);
+        expect(prompt).toContain("ONLY use the `task` tool");
+        expect(prompt).toContain("NEVER use tools other than `task` and `question`");
+        expect(prompt).not.toMatch(/Handle simple tasks directly|implement (?:the|it) (?:yourself|directly)/i);
     });
 
     it("keeps prompts compact without compulsory team ceremonies", () => {
@@ -161,20 +161,22 @@ describe("Prompt Consistency Guards", () => {
         }
     });
 
-    it("routes intent before deciding whether to change files", () => {
+    it("routes Commander work through native subagents instead of direct action", () => {
         const prompt = AGENTS[AGENT_NAMES.COMMANDER].systemPrompt;
-        expect(prompt).toContain("Classify the request first: question, review, planning, or implementation");
-        expect(prompt).toContain("For questions and reviews, explain findings without unsolicited changes");
-        expect(prompt).toContain("When implementation is requested, proceed");
-        expect(prompt).toContain("Resolve planning dependencies before assigning implementation");
+        expect(prompt).toContain("Delegate code understanding to `explore`");
+        expect(prompt).toContain("Delegate implementation to `build`");
+        expect(prompt).toContain("ALWAYS break work into focused subtasks");
+        expect(prompt).toContain("You CANNOT read files, run commands, edit code");
     });
 
-    it("preserves mission continuity and the existing completion artifacts", () => {
-        const prompt = AGENTS[AGENT_NAMES.COMMANDER].systemPrompt;
-        for (const text of [".opencode/todo.md", ".opencode/sync-issues.md", ".opencode/verification-checklist.md"]) {
-            expect(prompt).toContain(text);
+    it("preserves mission continuity and completion artifacts in the subagent prompts", () => {
+        for (const name of TERMINAL_AGENTS) {
+            const prompt = AGENTS[name].systemPrompt;
+            for (const text of [".opencode/todo.md", ".opencode/sync-issues.md", ".opencode/verification-checklist.md"]) {
+                expect(prompt, name).toContain(text);
+            }
+            expect(prompt, name).toMatch(/pause|abort/i);
+            expect(prompt, name).toMatch(/failed checks/i);
         }
-        expect(prompt).toMatch(/pause|abort/i);
-        expect(prompt).toMatch(/failed checks/i);
     });
 });

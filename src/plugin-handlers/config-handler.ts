@@ -24,6 +24,16 @@ type MutableConfig = Omit<Config, "command" | "agent" | "permission" | "default_
     permission?: unknown;
 };
 
+export const COMMANDER_DEFAULT_PERMISSION = {
+    "*": "deny",
+    task: "allow",
+    question: "allow",
+} as const;
+
+export const NATIVE_SUBAGENT_TYPES = ["explore", "general", "scout"] as const;
+
+export const NATIVE_DEMOTED_TYPES = ["plan", "build"] as const;
+
 function isPermissionAction(value: unknown): value is PermissionAction {
     return value === "ask" || value === "allow" || value === "deny";
 }
@@ -49,7 +59,8 @@ function defineAgent(
     defaults: AgentConfig,
     globalPermission: unknown,
 ): AgentConfig {
-    const permission = mergePermission(globalPermission, existing?.permission);
+    // Precedence: registration defaults (lowest) < global permission < agent-specific.
+    const permission = mergePermission(mergePermission(defaults.permission, globalPermission), existing?.permission);
     const agent = {
         ...defaults,
         ...existing,
@@ -74,6 +85,7 @@ function orchestratorAgentDefaults(): Record<string, AgentConfig> {
             description: "Autonomous orchestrator - executes until mission complete",
             mode: "primary",
             prompt: agentPrompt(AGENT_NAMES.COMMANDER),
+            permission: COMMANDER_DEFAULT_PERMISSION,
             color: "#ffea98",
         },
         // Subagents
@@ -112,6 +124,29 @@ function orchestratorCommands(): Record<string, unknown> {
     return commands;
 }
 
+/**
+ * Native OpenCode agent types the orchestrator makes usable: the discovery
+ * subagents are unhidden, and plan/build are demoted to subagents. Missing
+ * plan/build entries are created; v1 config may create agents, v2 may not.
+ */
+function unblockNativeSubagentTypes(
+    existingAgents: Record<string, AgentConfig>,
+): Record<string, AgentConfig> {
+    const agents: Record<string, AgentConfig> = { ...existingAgents };
+    for (const name of [...NATIVE_SUBAGENT_TYPES, ...NATIVE_DEMOTED_TYPES]) {
+        const agent = agents[name];
+        if (agent === undefined) continue;
+        const cleaned = { ...agent };
+        if (cleaned.hidden === true) delete cleaned.hidden;
+        if (cleaned.disable === true) delete cleaned.disable;
+        agents[name] = cleaned;
+    }
+    for (const name of NATIVE_DEMOTED_TYPES) {
+        agents[name] = { ...(agents[name] ?? {}), mode: "subagent" };
+    }
+    return agents;
+}
+
 function orchestratorAgents(
     existingAgents: Record<string, AgentConfig>,
     globalPermission: unknown,
@@ -133,9 +168,11 @@ export function createConfigHandler() {
         const existingCommands = mutableConfig.command ?? {};
         const existingAgents = mutableConfig.agent ?? {};
         const globalPermission = mutableConfig.permission;
+        const processedAgents = unblockNativeSubagentTypes(existingAgents);
 
         mutableConfig.command = { ...orchestratorCommands(), ...existingCommands };
-        mutableConfig.agent = { ...existingAgents, ...orchestratorAgents(existingAgents, globalPermission) };
+        mutableConfig.agent = { ...processedAgents, ...orchestratorAgents(processedAgents, globalPermission) };
+        mutableConfig.default_agent = AGENT_NAMES.COMMANDER;
 
         // Note: console.log removed to prevent TUI corruption
     };

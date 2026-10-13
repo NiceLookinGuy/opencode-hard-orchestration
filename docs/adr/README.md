@@ -59,7 +59,8 @@ What followed, including verification evidence and known limits.
 | [0018](0018-shell-listener-pty-helper-removal.md) | 2026-09-03 23:22 | Shell-listener one-touch PTY helper removal | Implemented |
 | [0019](0019-retire-knowledge-rag-subsystem.md) | 2026-09-04 00:10 | Retire in-memory knowledge RAG subsystem | Implemented |
 | [0020](0020-risk-graded-test-coverage-policy.md) | 2026-09-04 07:39 | Risk-graded test coverage policy | Implemented |
-| [0021](0021-minimal-mission-plugin.md) | 2026-09-14 17:41 | Minimal mission plugin: identity and deletion-first plan | Accepted; implementation in progress |
+| [0021](0021-minimal-mission-plugin.md) | 2026-09-14 17:41 | Minimal mission plugin: identity and deletion-first plan | Partially superseded by ADR-0025 |
 | [0022](0022-opencode-1-18-plugin-boundary.md) | 2026-09-15 16:25 | OpenCode 1.18 plugin boundary and runtime separation | Implemented |
 | [0023](0023-remove-unreachable-runtime-plumbing.md) | 2026-09-15 18:20 | Remove unreachable runtime plumbing | Implemented |
 | [0024](0024-opencode-2-plugin-compatibility.md) | 2026-09-20 | OpenCode 2 plugin compatibility | Implemented |
+| [0025](0025-hard-orchestrator-defaults.md) | 2026-10-13 21:21 | Hard orchestrator defaults on install | Accepted |

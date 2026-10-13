@@ -12,7 +12,7 @@
 
 ## What it does
 
-OpenCode Orchestrator keeps a task and its unfinished work connected across turns. Commander handles the goal; Planner, Worker, and Reviewer are optional helpers when the work benefits from them. Mission state is stored in the project's `.opencode/` directory.
+OpenCode Orchestrator keeps a task and its unfinished work connected across turns. Commander is installed as the default agent and delegates every request through OpenCode's native `task` tool: it can only delegate to the native agents (`explore`, `general`, `scout`, `plan`, `build`) and ask the user a question. Planner, Worker, and Reviewer remain available as hidden presets. Mission state is stored in the project's `.opencode/` directory.
 
 ## Install
 
@@ -29,7 +29,7 @@ For OpenCode 1 versions 1.18.29 and newer, add `"plugin": ["opencode-orchestrato
 
 ## Use
 
-Select **Commander** in OpenCode and send a request, or start a continuing mission:
+Send a request directly; Commander is already the selected default agent and delegates the work. Or start a continuing mission:
 
 ```text
 /task "Implement the feature and verify it"
@@ -41,12 +41,14 @@ Select **Commander** in OpenCode and send a request, or start a continuing missi
 | `/plan <objective>` | Prepare a plan without implementing it |
 | `/stop` or `/cancel` | Stop the active mission |
 
-Ordinary questions and small edits can be handled directly. Roles are used when they help; they are not a required pipeline.
+Commander asks focused clarifying questions before delegating. The native `plan` and `build` agents are demoted to subagents; `explore`, `general`, and `scout` are made visible for delegated research.
 Replacing a mission stops its previous session and delegated work before the new goal starts. Existing project TODO and checklist files remain available for the new mission to reconcile.
 
 ## Configuration
 
-The default installation needs no extra options. On OpenCode 2, set options in `opencode.jsonc` using the package object:
+The default installation needs no extra options. Installing the plugin forces `default_agent` to `Commander` and gives Commander the permission gate `{"*": "deny", "task": "allow", "question": "allow"}`, so it can only delegate and ask questions. Global `permission` and `agent.Commander.permission` settings override the gate; other agents keep their existing permissions. Native `plan`/`build` are demoted to subagents and `explore`/`general`/`scout` are unhidden.
+
+On OpenCode 2, set options in `opencode.jsonc` using the package object:
 
 ```jsonc
 {

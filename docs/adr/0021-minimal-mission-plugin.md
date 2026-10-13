@@ -8,7 +8,7 @@ Source: User-requested comparison, intent, and reduction plan; updated to priori
 
 OpenCode Orchestrator is a small, goal-oriented Commander for OpenCode. It keeps the objective, the next action, and unfinished work connected across turns, and concludes with evidence and explicit remaining limitations.
 
-Its identity is mission continuity, not a collection of tools or a fixed cast of agents. The existing Explore → Learn → Adapt → Act philosophy stays, expressed as a short working discipline. Commander owns the goal and final judgment; delegation is a means, not a required ceremony. A small task should finish in one session without launching a planner or reviewer.
+Its identity is mission continuity, not a collection of tools or a fixed cast of agents. The existing Explore → Learn → Adapt → Act philosophy stays, expressed as a short working discipline. Commander owns the goal and final judgment; delegation is a means, not a required ceremony. A small task should finish in one session without launching a planner or reviewer. **[Partially superseded by ADR-0025: Commander now delegates only and is the forced default agent.]**
 
 The desired user experience is: give a goal; work progresses; interrupt when needed; resume with the same goal and known unfinished work; receive a result that says what was checked and what remains. This is a product focus, not a claim that other agents lack these capabilities or that our implementation already guarantees them.
 
@@ -80,7 +80,7 @@ One writer owns each mission record. Restart must reconcile referenced native se
 | Custom TODO hierarchy, verification checklist parser, mandatory FINAL_PASS | Replace with native task planning plus explicit mission finish receipt | Define pause/unfinished/failed-check behavior before switching completion logic |
 | Generated canvas, episode notes, decay metadata, MemoryManager projections | Remove from core: extra representations without a retained retrieval consumer | Preserve existing files; keep the compact mission brief; do not extend the just-refactored note helper into a new memory system |
 | Metrics dashboard, OS sound/toast layers, extra progress projections | Remove from core | Keep only a concise native status message if it helps the user act |
-| Automatic default-agent takeover and build/plan demotion | Remove: identity should be selected, not imposed on every OpenCode session | Preserve native and user-defined agent configuration; Commander remains available explicitly |
+| Automatic default-agent takeover and build/plan demotion | Remove: identity should be selected, not imposed on every OpenCode session | Preserve native and user-defined agent configuration; Commander remains available explicitly **[Reversed by ADR-0025.]** |
 | Separate permission/role policy engine | Do not add; remove duplicative enforcement only after tracing it | Retain native permission checks, abort handling, path/resource boundaries, and secret-safe reporting |
 | New journal/outbox database, RAG, multi-harness adapters, tmux/team framework | Do not adopt | Reconsider only with a reproducible unmet mission requirement and a smaller alternative ruled out |
 
@@ -167,7 +167,7 @@ Files: `src/core/agents/manager.ts`, `src/core/agents/manager/`, `src/core/agent
 - [x] Remove unreachable child-session compaction and reuse state. Keep guarded deletion on OpenCode 1. OpenCode 2's plugin API exposes no safe transcript reset; since `@opencode/plugin` 2.0.22 it exposes `session.remove`, which retired V2 child sessions now use (older V2 hosts still leave them to the host). Isolated OpenCode 1.18.32 QA passed all 14 checks on 2026-09-27; live OpenCode 2 verification remains pending.
 - [x] Delete producerless work-stealing loops and the foreground tool's duplicate SDK completion polling. Launch/resume share admission; result tools use current-run manager state. Preserve failed abort ownership, unsent notification batches, and resumed tasks during cleanup; do not replay ambiguous prompt or transport failures.
 - [x] Remove unconditional Worker → Reviewer launches and their unused completion callbacks. The four role names remain optional presets for compatibility.
-- [x] Preserve user-selected default agents and models. Remove build/plan demotion and duplicate Commander system-prompt injection.
+- [x] Preserve user-selected default agents and models. Remove build/plan demotion and duplicate Commander system-prompt injection. **[Default-agent takeover and build/plan demotion restored by ADR-0025.]**
 - [x] Replace the fragment/profile framework with four compact optional presets and shared working discipline. Classify intent first; small work stays direct, dependent planning precedes implementation, review is optional. Preserve existing mission parser semantics until stage 4.
 - [ ] Keep a single branded mission entry command; migrate conflicting aliases explicitly.
 - [ ] Audit dependencies, timers, singleton state, public schemas, installers, binaries and documentation for orphaned code.

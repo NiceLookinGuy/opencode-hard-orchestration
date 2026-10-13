@@ -1,105 +1,92 @@
 # Agent Memory - OCO Session
 
-Last updated: 2026-10-11 KST
+Last updated: 2026-10-13 KST
 
 ## Current task
 
-Issue #52: provide a friendly response, add a custom rendering opt-out,
-document it, commit/push and publish patch 2.0.15. Maintainer work is complete.
-Starting main was clean at 4004837 and matched origin/main.
+Hard orchestrator defaults (user-approved): Commander permission gate, embedded
+delegate-only Commander prompt, unconditional `default_agent = "Commander"`,
+and native subagent unblocking (explore/general/scout/plan/build). Recorded as
+ADR-0025 (partial reversal of ADR-0021). TS-only; no version bump; no Rust.
 
 ## Last completed step
 
-- Opened issue #52 and comments: reporter wants rendering disabled for OpenChamber.
-- Read prior restore files, both entrypoints, configuration, handlers, post-tool
-  hooks, tests, README, architecture, schema, release scripts and hosted workflow.
-- Baseline build and 16 relevant tests passed. Previous npm 2.0.14 availability
-  was verified with shasum 79ffe8086108044edf8e36b04d1bf3160e13bd0b.
-- Source/docs commit a635b8d adds customRendering boolean with default true.
-  False disables tool timing footers in both entrypoints and standalone
-  thinking-closer cleanup in OpenCode 1. The value is captured per handler.
-- Session/evidence tracking, memory, post-tool hooks, secret redaction and
-  outgoing message guards remain active. No dependencies or migrations added.
-- Runtime types/parser, generated schema, README and architecture synchronized.
-- Added 13 tests covering tolerant parsing, actual registrations for false/true/unset,
-  structured/file content preservation and continued tracking/post-tool execution.
-- Initial host test expected Step 1; direct reading showed mission rehydration
-  starts at iteration 1, so the first completed tool is Step 2. Fixed the fixture.
-- Changed files reopened, option producers/consumers and V2 serialization traced;
-  root exports preserved. Build, tsc --noEmit and git diff --check passed.
-- Coverage: 127 files / 1,145 tests passed. Statements 91.51%, branches 82.55%,
-  functions 93.69%, lines 93.68%. Architectural, exports and connectivity tests passed.
-- Version commit 0ed6123 and tag v2.0.15 synchronize npm manifest/lock,
-  Cargo workspace/lock and README. Reviewed diff: only seven version fields changed.
-- Release preflight passed: build, coverage, Docker Rust 1.98.1 fmt/Clippy/158 tests,
-  production audit (zero vulnerabilities), dependency tree and packed-install checks.
-- Atomically pushed main and v2.0.15. Hosted release run 38097467669 succeeded,
-  including all five platform builds, artifact validation and full packed CLI smoke.
-- Tag CI 38097467579 passed. Follow-up 8779364 only adds explicit parameter types
-  to the regression mock; its three tests and CI 38097696911 passed.
-- GitHub v2.0.15 is public with authored release notes and configuration examples.
-- Downloaded all five assets, checked format/architecture/embedded version, and
-  matched SHA-256 against GitHub digests. Published Windows MSVC --version is 2.0.15.
-- npm public metadata initially lagged publication. The version endpoint, normal
-  npm view and tarball are now available. Published shasum matches release log:
-  cf05adcc8682f62ee3e5f5f9c9a0061fe56a3288.
-- Installed the public tarball in an isolated consumer. Root/server exports, schema,
-  actual tool-result opt-out, completed-text opt-out and bundled CLI version passed.
-  Hosted packed-install checks also verified configuration isolation and CLI.
-- Posted friendly progress and release replies on issue #52. Final response:
-  https://github.com/agnusdei1207/opencode-orchestrator/issues/52#issuecomment-6103650481
-  Includes both config formats, pinned version, restart/history guidance and request
-  for confirmation. Issue remains open for the reporter's specific WebUI setup.
-- Post-work audit: imports/exports/dynamic registrations retained, option type/schema
-  and docs consistent, evidence/session consumers remain wired, no dead references
-  or unrelated feature/refactor changes. This snapshot records the final results.
+- Baseline before edits: npm ci, build, 127 test files / 1,145 tests passed.
+- `src/plugin-handlers/config-handler.ts`: exported `COMMANDER_DEFAULT_PERMISSION`
+  (`{"*":"deny","task":"allow","question":"allow"}`), `NATIVE_SUBAGENT_TYPES`,
+  `NATIVE_DEMOTED_TYPES`; `defineAgent` now merges defaults < global < agent
+  permission; `unblockNativeSubagentTypes` strips `hidden:true`/`disable:true`
+  and forces plan/build `mode:"subagent"` (creates `{mode:"subagent"}` entries);
+  handler forces `default_agent`.
+- New `src/agents/prompts/commander-delegate.ts`: byte-verified copy of
+  `/Users/matth/.config/opencode/instructions/commander-only-delegate.md` with
+  only the plan/build Mode cells changed to `subagent` (4,388 chars, verified
+  programmatically against the source).
+- `src/agents/commander.ts`: prompt is now `COMMANDER_DELEGATE_PROMPT`;
+  `CORE_PHILOSOPHY` stays in `prompts/shared/philosophy.ts` for manager.ts:93.
+- `src/v2/agent-adapter.ts` imports the shared native-type constants; unhides
+  present native agents, demotes plan/build, calls `editor.default("Commander")`;
+  absent types are skipped (v2 cannot create agents, ADR-0024). No v2 permission
+  gate: `Agent.Info.permissions` is action/resource/effect with no equivalent.
+- Tests updated: config-handler (forced default, gate precedence, native
+  unblocking, capitalized names untouched), prompt-consistency (Commander
+  delegate-only; M/T/S scope now Planner/Reviewer; mission continuity scoped to
+  subagents), agent-definition (delegate-only assertions; .opencode scoped to
+  subagents), v2-plugin (createV2Context helper with get/default; new native
+  unblock test), Commander snapshot regenerated (only that snapshot changed).
+- Docs: new `docs/adr/0025-hard-orchestrator-defaults.md`; ADR index row and
+  0021 annotations; SYSTEM_ARCHITECTURE runtime shape/mermaid/prompt/permission
+  sections; README what-it-does/use/configuration. Schema untouched.
+- Verification: build passes (tsc declarations); full suite 127 files /
+  1,151 tests passed; coverage statements 91.56%, branches 82.68%, functions
+  93.7%, lines 93.72% (thresholds 85/72/88/85). No landing-mirror drift.
 
 ## Next exact step
 
-No additional implementation or release work is planned. If the reporter replies,
-read issue #52 and their OpenCode/OpenChamber versions and affected output first,
-then reproduce the remaining UI behavior before changing code or closing the issue.
+Stage the listed files and create the local commit on `main` (conventional
+message, no push). After committing, report files, commands, coverage, hash,
+deviations, and confidence.
 
 ## Incomplete items and why
 
-- No outstanding maintainer implementation, publication or response work.
-- The specific OpenChamber UI conflict has not been reproduced locally; reporter
-  confirmation is pending. Both host boundaries and the public npm package are verified.
+- None. Follow-ups recorded in ADR-0025: mission system-transform prompt still
+  injects task/background-tool text during active missions (pre-existing);
+  default_agent + user-hidden Commander interaction is host-owned.
 
 ## Key decisions
 
-- One writer and sequential work; no sub-agents.
-- Scoped per-handler boolean, default true, preserves existing installations.
-- Disable only presentation changes; retain mission and safety behavior.
-- Rollback via revert and a subsequent patch, without rewriting published tags.
-- Leave issue open for reporter confirmation rather than assert unverified UI success.
+- Gate precedence: registration defaults < global permission < agent-specific
+  permission; non-Commander agents are byte-identical to previous behavior.
+- Native type constants live in config-handler and are imported by the v2
+  adapter (single source of truth; no cycle; v2 pulls no new runtime surface).
+- Commander description left unchanged per instruction, even though the prompt
+  is delegate-only now.
+- v2 skips absent native agents instead of inventing them; no v2 gate.
 
 ## Rejected alternatives
 
-- Remove formatting unconditionally: changes existing users' default behavior.
-- Disable the entire post-tool handler: loses evidence, memory, accounting and redaction.
-- Claim a specific OpenChamber conflict is reproduced/resolved without UI evidence.
-- Re-publish on the first npm metadata 404: publication was accepted and later verified.
+- Local duplicate constants in the v2 adapter (divergence risk).
+- v2 permission mapping via `permissions` array (no verified equivalent).
+- Changing agent descriptions or version fields (out of scope by instruction).
 
 ## Known risks
 
-- Historical timing footers remain. Restart the backend after changing plugin options.
-- customRendering false preserves the standalone model thinking closer in OpenCode 1.
-- The option does not control rendering owned by OpenCode, OpenChamber or other plugins.
-- 2.0.15 tag points to 0ed6123; later main has test typing and this memory update only.
+- Users who explicitly hide Commander or set agent.Commander.hidden may get
+  host-defined default-agent behavior (ADR-0025 limitation).
+- The old compressed-conversation guidance is gone from the Commander prompt;
+  subagent prompts and the mission loop are unchanged.
+- Covered branches in the v2 adapter depend on host-created native agents; both
+  present and absent paths are unit-tested.
 
 ## Files to open first in the next session, in order
 
 1. AGENTS.md
 2. AGENT_MEMORY.md
-3. src/core/config/options-schema.ts
-4. src/core/config/plugin-options.ts
-5. src/index.ts
-6. src/v2/setup.ts
-7. src/plugin-handlers/tool-execute-handler.ts
-8. src/plugin-handlers/text-complete-handler.ts
-9. tests/unit/custom-rendering.test.ts
-10. README.md
-11. docs/SYSTEM_ARCHITECTURE.md
-12. .github/workflows/release.yml
-13. scripts/release-preflight.mjs
+3. src/plugin-handlers/config-handler.ts
+4. src/agents/prompts/commander-delegate.ts
+5. src/v2/agent-adapter.ts
+6. tests/unit/config-handler.test.ts
+7. tests/unit/v2-plugin.test.ts
+8. docs/adr/0025-hard-orchestrator-defaults.md
+9. README.md
+10. docs/SYSTEM_ARCHITECTURE.md

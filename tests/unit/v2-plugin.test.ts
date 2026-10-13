@@ -5,6 +5,64 @@ import type { Plugin } from "@opencode/plugin";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import OrchestratorPlugin from "../../src/index.js";
 
+type EditorAgent = { id: string; description?: string; system?: string; mode: string; hidden: boolean };
+
+function createV2Context(directory: string, seededAgents: Map<string, EditorAgent> = new Map()) {
+    const registrations: Array<{ dispose: ReturnType<typeof vi.fn> }> = [];
+    const agents = seededAgents;
+    const defaults: Array<string | undefined> = [];
+    const tools: Array<{ name?: string }> = [];
+    const commands: Array<{ name?: string }> = [];
+    const hookNames: string[] = [];
+    const registration = () => {
+        const value = { dispose: vi.fn().mockResolvedValue(undefined) };
+        registrations.push(value);
+        return Promise.resolve(value);
+    };
+    const context = {
+        location: { directory, project: { directory } },
+        options: {},
+        agent: {
+            list: vi.fn().mockResolvedValue([]),
+            transform: vi.fn((callback: (editor: {
+                get: (id: string) => EditorAgent | undefined;
+                default: (id: string | undefined) => void;
+                update: (id: string, edit: (agent: EditorAgent) => void) => void;
+            }) => void) => {
+                callback({
+                    get: id => agents.get(id),
+                    default: id => { defaults.push(id); },
+                    update: (id, edit) => {
+                        const agent = agents.get(id) ?? { id, mode: "all", hidden: false };
+                        edit(agent);
+                        agents.set(id, agent);
+                    },
+                });
+                return registration();
+            }),
+        },
+        session: {
+            create: vi.fn(), prompt: vi.fn(), synthetic: vi.fn(), interrupt: vi.fn(), context: vi.fn(),
+            hook: vi.fn((name: string) => { hookNames.push(`session.${name}`); return registration(); }),
+        },
+        tool: {
+            transform: vi.fn((callback: (editor: { add: (tool: { name?: string }) => void }) => void) => {
+                callback({ add: tool => tools.push(tool) });
+                return registration();
+            }),
+            hook: vi.fn((name: string) => { hookNames.push(`tool.${name}`); return registration(); }),
+        },
+        command: {
+            transform: vi.fn((callback: (editor: { add: (command: { name?: string }) => void }) => void) => {
+                callback({ add: command => commands.push(command) });
+                return registration();
+            }),
+        },
+        event: { subscribe: () => emptyEvents() },
+    } as unknown as Plugin.Context;
+    return { context, agents, defaults, tools, commands, hookNames, registrations };
+}
+
 describe("OpenCode 2 plugin setup", () => {
     const directories: string[] = [];
 
@@ -17,56 +75,16 @@ describe("OpenCode 2 plugin setup", () => {
     it("registers native V2 agents, tools, commands, hooks, and cleanup", async () => {
         const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-test-"));
         directories.push(directory);
-        const registrations: Array<{ dispose: ReturnType<typeof vi.fn> }> = [];
-        const agents = new Map<string, { id: string; description?: string; system?: string; mode: string; hidden: boolean }>();
-        const tools: Array<{ name?: string }> = [];
-        const commands: Array<{ name?: string }> = [];
-        const hookNames: string[] = [];
-        const registration = () => {
-            const value = { dispose: vi.fn().mockResolvedValue(undefined) };
-            registrations.push(value);
-            return Promise.resolve(value);
-        };
-        const context = {
-            location: { directory, project: { directory } },
-            options: {},
-            agent: {
-                list: vi.fn().mockResolvedValue([]),
-                transform: vi.fn((callback: (editor: { update: (id: string, edit: (agent: NonNullable<ReturnType<typeof agents.get>>) => void) => void }) => void) => {
-                    callback({ update: (id, edit) => {
-                        const agent = agents.get(id) ?? { id, mode: "all", hidden: false };
-                        edit(agent);
-                        agents.set(id, agent);
-                    } });
-                    return registration();
-                }),
-            },
-            session: {
-                create: vi.fn(), prompt: vi.fn(), synthetic: vi.fn(), interrupt: vi.fn(), context: vi.fn(),
-                hook: vi.fn((name: string) => { hookNames.push(`session.${name}`); return registration(); }),
-            },
-            tool: {
-                transform: vi.fn((callback: (editor: { add: (tool: { name?: string }) => void }) => void) => {
-                    callback({ add: tool => tools.push(tool) });
-                    return registration();
-                }),
-                hook: vi.fn((name: string) => { hookNames.push(`tool.${name}`); return registration(); }),
-            },
-            command: {
-                transform: vi.fn((callback: (editor: { add: (command: { name?: string }) => void }) => void) => {
-                    callback({ add: command => commands.push(command) });
-                    return registration();
-                }),
-            },
-            event: { subscribe: () => emptyEvents() },
-        } as unknown as Plugin.Context;
+        const { context, agents, defaults, tools, commands, hookNames, registrations } = createV2Context(directory);
 
         const cleanup = await OrchestratorPlugin.setup(context);
 
         expect([...agents.keys()]).toEqual(["Commander", "Planner", "Worker", "Reviewer"]);
+        expect(agents.has("plan")).toBe(false);
+        expect(defaults).toEqual(["Commander"]);
         expect(agents.get("Commander")).toMatchObject({ mode: "primary", hidden: false, system: expect.any(String) });
-        expect(agents.get("Commander")?.system).toContain("You are Commander.");
-        expect(agents.get("Commander")?.system).toContain("historical context, not a new user request or approval");
+        expect(agents.get("Commander")?.system).toContain("COMMANDER: THINK AND DELEGATE ONLY");
+        expect(agents.get("Commander")?.system).toContain("NEVER use tools other than `task` and `question`");
         for (const name of ["Planner", "Worker", "Reviewer"]) {
             expect(agents.get(name)).toMatchObject({ mode: "subagent", hidden: true, system: expect.any(String) });
             expect(agents.get(name)?.system).toContain(`You are ${name}.`);
@@ -82,6 +100,33 @@ describe("OpenCode 2 plugin setup", () => {
         expect(cleanup).toBeTypeOf("function");
         await cleanup?.();
         expect(registrations.every(item => item.dispose.mock.calls.length === 1)).toBe(true);
+    });
+
+    it("unblocks the five native V2 agent types and forces the Commander default", async () => {
+        const directory = mkdtempSync(path.join(tmpdir(), "oco-v2-native-"));
+        directories.push(directory);
+        const seeded = new Map<string, EditorAgent>([
+            ["explore", { id: "explore", mode: "subagent", hidden: true }],
+            ["general", { id: "general", mode: "subagent", hidden: true }],
+            ["scout", { id: "scout", mode: "subagent", hidden: true }],
+            ["plan", { id: "plan", mode: "primary", hidden: true }],
+            ["build", { id: "build", mode: "primary", hidden: true }],
+        ]);
+        const { context, agents, defaults } = createV2Context(directory, seeded);
+
+        const cleanup = await OrchestratorPlugin.setup(context);
+
+        expect(defaults).toEqual(["Commander"]);
+        for (const name of ["explore", "general", "scout"]) {
+            expect(agents.get(name), name).toMatchObject({ mode: "subagent", hidden: false });
+        }
+        for (const name of ["plan", "build"]) {
+            expect(agents.get(name), name).toMatchObject({ mode: "subagent", hidden: false });
+        }
+        for (const name of ["Planner", "Worker", "Reviewer"]) {
+            expect(agents.get(name), name).toMatchObject({ mode: "subagent", hidden: true });
+        }
+        await cleanup?.();
     });
 
     it("runs task as a synthetic instruction instead of a visible user prompt", async () => {

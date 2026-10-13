@@ -1,6 +1,6 @@
 # System Architecture
 
-Date: 2026-10-11 (custom rendering opt-out and outgoing message guard reviewed)
+Date: 2026-10-13 (hard orchestrator defaults reviewed)
 
 This document describes the current architecture that is directly verifiable from the repository source. It intentionally avoids speculative performance claims.
 
@@ -13,7 +13,7 @@ This document describes the current architecture that is directly verifiable fro
 | npm CLI launcher | `src/cli.ts` → `dist/cli.js` | Selects one supported bundled Rust binary, forwards argv and inherited stdio without a shell, and preserves child exit status. |
 | Rust CLI | `crates/orchestrator-cli/src/main.rs` | Dispatches `serve`, metadata, and explicit terminal commands. |
 | Shell listener CLI | `crates/orchestrator-cli/src/shell_listener.rs` | Runs the authorized-lab TCP session listener and line-mode TUI outside OpenCode RPC. |
-| Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, and copies global permissions. |
+| Config hook | `src/plugin-handlers/config-handler.ts` | Registers commands and the four generated agents, merges user agent overrides, forces the Commander default with its permission gate and delegate-only prompt, and unblocks the native explore/general/scout/plan/build agent types (plan/build demoted to `subagent`). |
 | Event hook | `src/plugin-handlers/event-handler.ts` | Bridges OpenCode session/message events into mission continuation, recovery, and cleanup paths. |
 | Chat hook | `src/plugin-handlers/chat-message-handler.ts` | Tracks user activity and routes slash-command text through the local hook registry. |
 | Text completion hook | `src/plugin-handlers/text-complete-handler.ts` | Blanks a known standalone MiMo thinking closer in finalized OpenCode 1 text parts (issue #50). |
@@ -22,41 +22,37 @@ This document describes the current architecture that is directly verifiable fro
 
 ## 2. Runtime Shape
 
-OpenCode Orchestrator is an OpenCode plugin with four generated agents:
+OpenCode Orchestrator is an OpenCode plugin with four generated agents and five native OpenCode agent types it unblocks:
 
-These are selectable presets, not required stages. Commander distinguishes questions, reviews, planning, and implementation before choosing work. Small changes stay in the primary session. A plan precedes implementation that depends on it; independent workers may run in parallel after their scope is known. Review is optional and explicit.
+Commander is the forced default agent and delegates every request through the native `task` tool; its generated prompt states that it can only use `task` and `question`. Planner, Worker, and Reviewer remain hidden subagent presets. The native `explore`, `general`, and `scout` types are unhidden, and `plan`/`build` are demoted to `subagent` mode (with `{ mode: "subagent" }` entries created when absent in OpenCode 1), so Commander is the only primary orchestrator. Same-name user agent configuration still merges back into generated agents.
 
 | Agent | Mode | Role |
 | --- | --- | --- |
-| Commander | `primary` | Owns the mission loop and top-level coordination. |
+| Commander | `primary` | Default agent; thinks and delegates through `task`, never acts directly. |
 | Planner | `subagent` | Breaks work into ordered steps and research tasks. |
 | Worker | `subagent` | Implements scoped changes. |
 | Reviewer | `subagent` | Verifies completion evidence and integration risk. |
 
+Native agent normalization only touches `hidden`, `disable`, and the `plan`/`build` `mode`; descriptions, prompts, models, and capitalized names are left alone.
+
 ```mermaid
 flowchart TD
     H[OpenCode: commands, chat, events, tools] --> I[Plugin hooks and command adapter]
-    I --> C[Commander: intent and scope]
-    C --> D[Direct work]
-    C --> P[Resolve plan and dependencies]
-    P -. Optional .-> PL[Planner preset]
-    PL --> P
-    P --> E[Execute scoped work]
-    E -. Optional independent delegation .-> T[Bounded task manager]
-    T --> W[Worker in native child session]
-    W --> V[Commander verifies results]
-    D --> V
-    E --> V
-    V -. Optional .-> R[Reviewer preset]
-    R --> F[Commander reports evidence]
-    V --> F
+    I --> C[Commander: think and delegate]
+    C --> T[Native task tool]
+    T --> E[explore / general / scout: research]
+    T --> PL[plan: planning]
+    T --> B[build: implementation]
+    E --> C
+    PL --> C
+    B --> C
     I --> M[Project mission record: one active root]
     M --> G[Idle handler: ownership, abort, activity, task guards]
     G --> N[Native prompt for the owning session]
     N --> C
 ```
 
-The dotted edges are optional. The mission continuation path applies only to its owning session; ordinary questions do not activate it. Native child sessions are owned by OpenCode, while the retained manager supplies bounded admission and result tracking during migration.
+Commander cannot act directly, so every branch passes through the native `task` tool. Planner, Worker, and Reviewer remain hidden presets for existing `delegate_task` routing. The mission continuation path applies only to its owning session; ordinary questions do not activate it. Native child sessions are owned by OpenCode, while the retained manager supplies bounded admission and result tracking during migration.
 
 The plugin does not force a model. Model routing follows OpenCode inheritance:
 
@@ -64,15 +60,15 @@ The plugin does not force a model. Model routing follows OpenCode inheritance:
 2. Planner, Worker, and Reviewer inherit the invoking primary agent model unless their own `agent.<name>.model` is set.
 3. Same-name user agent config is merged back into the generated agent definition.
 
-Native `build`/`plan` modes and the configured `default_agent` remain unchanged. If no default is configured, OpenCode chooses it. Commander is available for explicit selection. Worker completion no longer automatically launches Reviewer; review is requested deliberately when needed.
+The config hook forces `default_agent` to `Commander`, demotes native `plan`/`build` to `subagent` mode, and unhides native `explore`/`general`/`scout`. Worker completion no longer automatically launches Reviewer; review is requested deliberately when needed.
 
 Agent instructions come from host configuration. The system-transform hook adds current mission context without injecting another complete Commander prompt.
 
-Prompt definitions are now four short role presets using `src/agents/prompts/common.ts` and the shared philosophy. The old fragment registry, compact/verbose profile machinery, compulsory phases, and hyper-parallel instructions are removed.
+Prompt definitions are three short role presets using `src/agents/prompts/common.ts` and the shared philosophy, plus the embedded delegate-only Commander prompt in `src/agents/prompts/commander-delegate.ts`. The old fragment registry, compact/verbose profile machinery, compulsory phases, and hyper-parallel instructions are removed.
 
 The slash-command templates and runtime continuation/checkpoint prompts follow the same discipline. Planning does not require file creation or delegation. Continuation preserves document structure and existing files. A context checkpoint does not claim that OpenCode compaction has completed.
 
-The Commander prompt instructs the model to treat `[Compressed conversation section]` blocks as historical context, even when a context-pruning plugin carries them in a user-role message. A real instruction accompanying or following a summary still takes precedence. This instruction reaches OpenCode 1 through the generated agent config and OpenCode 2 through the agent transform. Orchestrator does not rewrite another plugin's message roles; the originating plugin or host owns that boundary (issue #48).
+The delegate-only Commander prompt no longer carries the former `[Compressed conversation section]` guidance; that limitation is recorded in [ADR-0025](adr/0025-hard-orchestrator-defaults.md). Orchestrator does not rewrite another plugin's message roles; the originating plugin or host owns that boundary (issue #48).
 
 OpenCode 1 calls `experimental.text.complete` after streaming a text part and before its final part update. Orchestrator blanks a text part only when its entire trimmed content is `</assistant-thinking></think>` (issue #50). Earlier `message.part.delta` events are already visible to consumers: OpenCode's append-only `run` renderer and ACP can retain the tag after the stored part is blanked. If processing stops before `text-end`, the host cleanup stores the unfinished text without calling this hook. Other plugins' text-completion hooks run sequentially over the same output, so their order can also change the final result. Reasoning parts are separate. OpenCode 2's `@opencode/plugin` 2.0.22 session hooks do not expose a text completion equivalent; this normalization is limited to the OpenCode 1 server entrypoint.
 
@@ -147,7 +143,7 @@ Concurrency maps and the default accept `0` for unlimited; the generated schema 
 
 ## 4. Permission Model
 
-`src/plugin-handlers/config-handler.ts` copies the global OpenCode `permission` block into each generated agent and then merges same-name agent overrides on top. That keeps permission-gated tools such as `question` available when the user explicitly allows them, while still letting `agent.commander.permission` or similar narrow policy for a single agent.
+`src/plugin-handlers/config-handler.ts` merges each generated agent's permission in three levels: registration defaults, then the global OpenCode `permission` block, then the same-name agent override. Only Commander defines a registration default — the gate `{"*": "deny", "task": "allow", "question": "allow"}` — so installing the plugin gives the orchestrator only delegation and user questions by default. Global and agent-specific user configuration always win over the gate, and non-Commander agents continue to copy the global block exactly. On OpenCode 2 the agent transform cannot apply this gate: `Agent.Info.permissions` is an action/resource/effect array with no verified equivalent (ADR-0025).
 
 Project instruction files are not copied into generated agent prompts by the plugin. OpenCode owns the rules layer through `AGENTS.md`, `opencode.json` `instructions`, and its documented Claude Code fallback behavior, so the config hook stays limited to command and agent registration.
 

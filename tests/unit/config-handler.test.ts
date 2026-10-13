@@ -12,7 +12,7 @@ describe("createConfigHandler", () => {
         expect(config.command.task).not.toHaveProperty("argumentHint");
     });
 
-    it("preserves native agent modes and the user's default agent", async () => {
+    it("forces Commander as default and demotes native plan/build agents", async () => {
         const config = {
             default_agent: "plan",
             agent: {
@@ -20,23 +20,27 @@ describe("createConfigHandler", () => {
                 plan: { mode: "primary", hidden: false, prompt: "User planning prompt" },
             },
         };
-        const originalAgents = structuredClone(config.agent);
 
         await createConfigHandler()(config);
 
-        expect(config.default_agent).toBe("plan");
-        expect(config.agent.build).toEqual(originalAgents.build);
-        expect(config.agent.plan).toEqual(originalAgents.plan);
+        expect(config.default_agent).toBe(AGENT_NAMES.COMMANDER);
+        expect(config.agent.build).toEqual({ mode: "subagent", hidden: false, model: "user/build" });
+        expect(config.agent.plan).toEqual({ mode: "subagent", hidden: false, prompt: "User planning prompt" });
     });
 
-    it("leaves default agent selection to OpenCode when unset", async () => {
+    it("installs hard orchestrator defaults on a fresh config", async () => {
         const config = {};
 
         await createConfigHandler()(config);
 
-        expect(config).not.toHaveProperty("default_agent");
-        expect(config.agent[AGENT_NAMES.COMMANDER]).toMatchObject({ mode: "primary" });
+        expect(config.default_agent).toBe(AGENT_NAMES.COMMANDER);
+        expect(config.agent[AGENT_NAMES.COMMANDER]).toMatchObject({
+            mode: "primary",
+            permission: { "*": "deny", task: "allow", question: "allow" },
+        });
         expect(config.agent[AGENT_NAMES.COMMANDER].prompt).toBeTruthy();
+        expect(config.agent.plan).toEqual({ mode: "subagent" });
+        expect(config.agent.build).toEqual({ mode: "subagent" });
     });
 
     it("uses registration defaults only for absent agent configuration", async () => {
@@ -52,7 +56,10 @@ describe("createConfigHandler", () => {
 
         await createConfigHandler()(config);
 
-        expect(config.agent[AGENT_NAMES.COMMANDER]).toEqual(commander);
+        expect(config.agent[AGENT_NAMES.COMMANDER]).toEqual({
+            ...commander,
+            permission: { "*": "deny", task: "allow", question: "allow" },
+        });
     });
 
     it("inherits global permission config for every orchestrator agent", async () => {
@@ -70,6 +77,19 @@ describe("createConfigHandler", () => {
         await createConfigHandler()(config);
 
         for (const agentName of Object.values(AGENT_NAMES)) {
+            if (agentName === AGENT_NAMES.COMMANDER) {
+                expect(config.agent[agentName].permission).toEqual({
+                    "*": "deny",
+                    task: "allow",
+                    question: "allow",
+                    edit: "deny",
+                    bash: {
+                        "*": "ask",
+                        "git status*": "allow",
+                    },
+                });
+                continue;
+            }
             expect(config.agent[agentName].permission).toEqual(config.permission);
         }
     });
@@ -103,6 +123,8 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.COMMANDER].model).toBe("opencode/gpt-5.1-codex");
         expect(config.agent[AGENT_NAMES.COMMANDER].temperature).toBe(0.2);
         expect(config.agent[AGENT_NAMES.COMMANDER].permission).toEqual({
+            "*": "deny",
+            task: "allow",
             question: "deny",
             edit: "deny",
             bash: "ask",
@@ -147,28 +169,99 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.REVIEWER]).not.toHaveProperty("tools");
     });
 
-    it("keeps blocked-clarification guidance compatible with question permission", async () => {
-        const config = {
-            permission: {
-                question: "allow",
-            },
-        };
-
-        await createConfigHandler()(config);
-
-        expect(config.agent[AGENT_NAMES.COMMANDER].prompt).toContain("question permission allows it");
-        expect(config.agent[AGENT_NAMES.COMMANDER].prompt).not.toContain("without asking questions");
-    });
-
-    it("registers historical compression guidance for Commander", async () => {
+    it("embeds the delegate-only Commander prompt", async () => {
         const config = {};
 
         await createConfigHandler()(config);
 
         const prompt = config.agent[AGENT_NAMES.COMMANDER].prompt;
-        expect(prompt).toContain("[Compressed conversation section]");
-        expect(prompt).toContain("historical context, not a new user request or approval");
-        expect(prompt).toContain("Follow a real user instruction that accompanies or follows the summary");
+        expect(prompt).toContain("ONLY use the `task` tool");
+        expect(prompt).toContain("NEVER use tools other than `task` and `question`");
+        expect(prompt).not.toContain("Handle simple tasks directly");
+    });
+
+    it("lets user agent permission override the Commander gate", async () => {
+        const config = {
+            agent: {
+                [AGENT_NAMES.COMMANDER]: {
+                    permission: {
+                        question: "deny",
+                    },
+                },
+            },
+        };
+
+        await createConfigHandler()(config);
+
+        expect(config.agent[AGENT_NAMES.COMMANDER].permission).toEqual({
+            "*": "deny",
+            task: "allow",
+            question: "deny",
+        });
+    });
+
+    it("overlays global record permission over the Commander gate", async () => {
+        const config = {
+            permission: {
+                task: "deny",
+                bash: "allow",
+            },
+        };
+
+        await createConfigHandler()(config);
+
+        expect(config.agent[AGENT_NAMES.COMMANDER].permission).toEqual({
+            "*": "deny",
+            task: "deny",
+            question: "allow",
+            bash: "allow",
+        });
+    });
+
+    it("lets a global string permission replace the Commander gate", async () => {
+        const config = { permission: "allow" };
+
+        await createConfigHandler()(config);
+
+        expect(config.agent[AGENT_NAMES.COMMANDER].permission).toBe("allow");
+    });
+
+    it("unblocks the five native subagent types and leaves capitalized names alone", async () => {
+        const config = {
+            agent: {
+                explore: { hidden: true, disable: true, model: "user/explore" },
+                general: { hidden: true, disable: true },
+                scout: { hidden: true, disable: true },
+                plan: { hidden: true, disable: true, mode: "primary", prompt: "user/plan" },
+                build: { hidden: true, disable: true, mode: "primary" },
+                Plan: { hidden: true, disable: true, mode: "primary" },
+            },
+        };
+        const userPlan = structuredClone(config.agent.plan);
+
+        await createConfigHandler()(config);
+
+        expect(config.agent.explore).toEqual({ model: "user/explore" });
+        expect(config.agent.general).toEqual({});
+        expect(config.agent.scout).toEqual({});
+        expect(config.agent.plan).toEqual({ mode: "subagent", prompt: "user/plan" });
+        expect(config.agent.build).toEqual({ mode: "subagent" });
+        expect(config.agent.Plan).toEqual({ hidden: true, disable: true, mode: "primary" });
+        expect(config.agent.plan).not.toEqual(userPlan);
+    });
+
+    it("leaves orchestrator roles and unrelated custom agents untouched by native unblocking", async () => {
+        const config = {
+            agent: {
+                [AGENT_NAMES.PLANNER]: { hidden: true, disable: true },
+                "my-custom-agent": { hidden: true, disable: true, mode: "primary" },
+            },
+        };
+
+        await createConfigHandler()(config);
+
+        expect(config.agent[AGENT_NAMES.PLANNER]).toMatchObject({ mode: "subagent", hidden: true, disable: true });
+        expect(config.agent["my-custom-agent"]).toEqual({ hidden: true, disable: true, mode: "primary" });
     });
 
     it("leaves Claude rule fallback to OpenCode instead of embedding compatibility prompts", async () => {
