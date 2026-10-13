@@ -1,17 +1,25 @@
 # Agent Memory — opencode-hard-orchestration
 
-Last updated: 2026-10-13 23:13 KST
+Last updated: 2026-10-13 23:15 KST
 
 ## Current task
 
 Fork rework of `agnusdei1207/opencode-orchestrator` @ 2.0.15 into
-`opencode-hard-orchestration` 0.1.0 is complete locally (strip commit
-`1c173e6`, docs/meta phase committed on `main`). Nothing is pushed. Next
-phase is publishing the fork.
+`opencode-hard-orchestration` 0.1.0 is published: GitHub fork
+`https://github.com/NiceLookinGuy/opencode-hard-orchestration` exists and
+`main` (3522429 at time of push) is pushed there. Remaining Phase 2 work is
+verifying the install forms against the real repo.
 
 ## Last completed step
 
-- Phase 1b docs/meta (local, not pushed): README rewritten for the fork
+- Phase 2a publish: forked upstream to
+  `NiceLookinGuy/opencode-hard-orchestration` via
+  `gh repo fork --clone=false --fork-name` (note: `--remote` is rejected by
+  gh when a repo argument is given; remotes were rearranged manually).
+  Local remotes: `origin` = fork (fetch+push), `upstream` =
+  `agnusdei1207/opencode-orchestrator`. Pushed `main` f88f00a..3522429
+  (fast-forward, no force). No upstream writes and no PRs.
+- Phase 1b docs/meta (local, now pushed): README rewritten for the fork
   (MIT badge only, git installs, no npm/options/missions); LICENSE keeps the
   original text and adds "Copyright (c) 2026 NiceLookinGuy (fork
   modifications)"; CONTRIBUTING.md, `user-prompt/`, landing files
@@ -31,10 +39,9 @@ phase is publishing the fork.
 
 ## Next exact step
 
-Phase 2 (remote, explicit user request required): create
-`NiceLookinGuy/opencode-hard-orchestration`, push `main`, verify the v1
-config git spec and v2 `opencode plugin add github:...` install forms against
-the real repo.
+Phase 2b (needs user request): verify the v1 config git spec and v2
+`opencode plugin add github:...` install forms against
+`NiceLookinGuy/opencode-hard-orchestration`.
 
 ## Incomplete items and why
 
