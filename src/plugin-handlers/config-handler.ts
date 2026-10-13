@@ -1,13 +1,12 @@
 /**
  * Plugin Handlers - Config Handler
- * 
- * Registers commands and agents with OpenCode
+ *
+ * Registers the Commander agent and unblocks the native subagent types.
  */
 
 import type { Config } from "@opencode-ai/plugin";
 import { AGENTS } from "../agents/definitions.js";
-import { COMMANDS } from "../tools/slashCommand.js";
-import { AGENT_NAMES } from "../shared/index.js";
+import { AGENT_NAMES } from "../shared/agent/index.js";
 import { isRecord } from "../shared/core/guards.js";
 
 type UnknownRecord = Record<string, unknown>;
@@ -17,8 +16,7 @@ type AgentConfig = UnknownRecord & {
     hidden?: boolean;
     permission?: unknown;
 };
-type MutableConfig = Omit<Config, "command" | "agent" | "permission" | "default_agent"> & UnknownRecord & {
-    command?: Record<string, unknown>;
+type MutableConfig = Omit<Config, "agent" | "permission" | "default_agent"> & UnknownRecord & {
     agent?: Record<string, AgentConfig>;
     default_agent?: string;
     permission?: unknown;
@@ -77,10 +75,9 @@ function agentPrompt(name: string): string {
     return AGENTS[name]?.systemPrompt || "";
 }
 
-/** Commander (primary) and the consolidated subagents, in registration order. */
+/** Commander (primary), the delegate-only hard-orchestration agent. */
 function orchestratorAgentDefaults(): Record<string, AgentConfig> {
     return {
-        // Primary agent - the main orchestrator
         [AGENT_NAMES.COMMANDER]: {
             description: "Autonomous orchestrator - executes until mission complete",
             mode: "primary",
@@ -88,40 +85,7 @@ function orchestratorAgentDefaults(): Record<string, AgentConfig> {
             permission: COMMANDER_DEFAULT_PERMISSION,
             color: "#ffea98",
         },
-        // Subagents
-        [AGENT_NAMES.PLANNER]: {
-            description: "Strategic planning and research specialist",
-            mode: "subagent",
-            hidden: true,
-            prompt: agentPrompt(AGENT_NAMES.PLANNER),
-            color: "#9B59B6",
-        },
-        [AGENT_NAMES.WORKER]: {
-            description: "Implementation and documentation specialist",
-            mode: "subagent",
-            hidden: true,
-            prompt: agentPrompt(AGENT_NAMES.WORKER),
-            color: "#E67E22",
-        },
-        [AGENT_NAMES.REVIEWER]: {
-            description: "Module-level verification specialist",
-            mode: "subagent",
-            hidden: true,
-            prompt: agentPrompt(AGENT_NAMES.REVIEWER),
-            color: "#27AE60",
-        },
     };
-}
-
-function orchestratorCommands(): Record<string, unknown> {
-    const commands: Record<string, unknown> = {};
-    for (const [name, cmd] of Object.entries(COMMANDS)) {
-        commands[name] = {
-            description: cmd.description,
-            template: cmd.template,
-        };
-    }
-    return commands;
 }
 
 /**
@@ -165,12 +129,10 @@ export function createConfigHandler() {
     return async (config: Config & UnknownRecord) => {
         const mutableConfig = config as MutableConfig;
 
-        const existingCommands = mutableConfig.command ?? {};
         const existingAgents = mutableConfig.agent ?? {};
         const globalPermission = mutableConfig.permission;
         const processedAgents = unblockNativeSubagentTypes(existingAgents);
 
-        mutableConfig.command = { ...orchestratorCommands(), ...existingCommands };
         mutableConfig.agent = { ...processedAgents, ...orchestratorAgents(processedAgents, globalPermission) };
         mutableConfig.default_agent = AGENT_NAMES.COMMANDER;
 

@@ -4,7 +4,7 @@ export default defineConfig({
     test: {
         globals: true,
         environment: "node",
-        include: ["tests/**/*.test.ts"],
+        include: ["tests/unit/**/*.test.ts"],
         /**
          * Several suites do real work per test — bundling with esbuild, spawning
          * Node child processes, importing the built dist bundle. Unloaded they
@@ -23,10 +23,10 @@ export default defineConfig({
             reporter: ["text", "html"],
             include: ["src/**/*.ts"],
             thresholds: {
-                lines: 85,
-                statements: 85,
-                functions: 88,
-                branches: 72,
+                lines: 99,
+                statements: 94,
+                functions: 97,
+                branches: 90,
             },
         },
     },

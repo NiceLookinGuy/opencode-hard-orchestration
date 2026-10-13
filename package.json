@@ -1,86 +1,50 @@
 {
-  "name": "opencode-orchestrator",
-  "displayName": "OpenCode Orchestrator",
-  "description": "Multi-agent mission control for OpenCode with Commander, Planner, Worker, and Reviewer workflows.",
-  "version": "2.0.15",
-  "author": "agnusdei1207",
+  "name": "opencode-hard-orchestration",
+  "displayName": "OpenCode Hard Orchestration",
+  "description": "Hard-orchestration plugin for OpenCode: a delegate-only Commander agent with a permission hard gate, native subagent unblocking, and safety guards.",
+  "version": "0.1.0",
+  "author": "NiceLookinGuy",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/agnusdei1207/opencode-orchestrator.git"
+    "url": "git+https://github.com/NiceLookinGuy/opencode-hard-orchestration.git"
   },
-  "homepage": "https://agnusdei1207.github.io/opencode-orchestrator/",
+  "homepage": "https://github.com/NiceLookinGuy/opencode-hard-orchestration",
   "bugs": {
-    "url": "https://github.com/agnusdei1207/opencode-orchestrator/issues"
+    "url": "https://github.com/NiceLookinGuy/opencode-hard-orchestration/issues"
   },
   "keywords": [
     "opencode",
     "ai",
-    "agent",
     "orchestrator",
-    "multi-agent",
-    "llm",
-    "plugin",
-    "code-generation"
+    "hard-orchestration",
+    "plugin"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
-  "bin": {
-    "orchestrator": "dist/cli.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./server": "./dist/index.js"
+    }
   },
   "files": [
     "dist",
-    "scripts/tail-log.mjs",
-    "bin",
     "README.md",
-    "LICENSE",
-    "opencode-orchestrator.schema.json"
+    "LICENSE"
   ],
   "scripts": {
-    "docker:build-all": "docker compose run --rm dev && docker compose run --rm rust-arm64 && docker compose run --rm win-builder",
-    "docker:build-win": "docker compose run --rm win-builder",
-    "docker:rust-dist": "docker compose run --rm dev && docker compose run --rm rust-arm64",
-    "docker:test": "docker compose run --rm test",
-    "docker:clean": "docker compose down -v",
-    "sync:landing": "node scripts/sync-landing.mjs",
-    "prebuild": "node scripts/sync-landing.mjs",
     "build": "node scripts/build.mjs",
-    "gen:schema": "esbuild scripts/gen-schema.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/gen-schema.mjs && node node_modules/.cache/gen-schema.mjs",
-    "build:all": "npm run build && npm run docker:rust-dist",
     "test": "vitest run --reporter=verbose",
-    "test:coverage": "vitest run --coverage",
-    "test:unit": "vitest run tests/unit --reporter=verbose",
-    "test:e2e": "vitest run tests/e2e --reporter=verbose",
-    "test:all": "npm run build && vitest run --reporter=verbose && echo '=== ALL TESTS PASSED ==='",
-    "prepublishOnly": "npm run build",
-    "sync:readme-version": "node scripts/sync-readme-version.mjs",
-    "version": "node scripts/sync-readme-version.mjs --stage",
-    "release:preflight": "node scripts/release-preflight.mjs",
-    "release:patch": "node scripts/release-version.mjs patch && npm run release:preflight && npm run release:push",
-    "release:minor": "node scripts/release-version.mjs minor && npm run release:preflight && npm run release:push",
-    "release:major": "node scripts/release-version.mjs major && npm run release:preflight && npm run release:push",
-    "release:dry-run": "node scripts/release-preflight.mjs --allow-dirty --skip-branch --skip-version-check",
-    "release:push": "node scripts/release-push.mjs",
-    "release:clean": "shx rm -rf dist bin && docker compose down -v",
-    "log": "node scripts/tail-log.mjs"
+    "test:coverage": "vitest run --coverage"
   },
   "engines": {
     "node": ">=24.15.0"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.18.34",
-    "@opencode-ai/sdk": "1.18.34",
-    "jsonc-parser": "^3.3.1",
-    "zod": "^4.3.6"
+    "@opencode-ai/plugin": "1.18.34"
   },
   "devDependencies": {
     "@opencode/plugin": "2.0.22",
@@ -88,7 +52,6 @@
     "@vitest/coverage-v8": "^5.0.1",
     "es-module-lexer": "^3.0.2",
     "esbuild": "^0.28.2",
-    "shx": "^0.4.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
   }

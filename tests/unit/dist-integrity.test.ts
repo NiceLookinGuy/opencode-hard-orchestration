@@ -13,7 +13,6 @@ const DIST_ENTRYPOINT_LOAD_TIMEOUT_MS = 15_000;
 // at runtime on end-user machines, where only "dependencies" are installed.
 const SHIPPED_BUNDLES = [
     "dist/index.js",
-    "dist/cli.js",
 ];
 
 interface PackageManifest {
@@ -121,16 +120,7 @@ describe.skipIf(!existsSync(path.join(distDir, "index.js")))("dist bundle integr
     it("dist/index.js loads and exposes the plugin entrypoint", async () => {
         const mod = await import(pathToFileURL(path.join(distDir, "index.js")).href);
 
-        expect(mod.default.id).toBe("opencode-orchestrator");
-        expect(typeof mod.default.server).toBe("function");
-        expect(typeof mod.default.setup).toBe("function");
-    }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);
-
-    it("resolves the explicit OpenCode server package export", async () => {
-        const serverEntry = import.meta.resolve("opencode-orchestrator/server");
-        const mod = await import(serverEntry);
-
-        expect(serverEntry.replaceAll("\\", "/")).toContain("/dist/index.js");
+        expect(mod.default.id).toBe("opencode-hard-orchestration");
         expect(typeof mod.default.server).toBe("function");
         expect(typeof mod.default.setup).toBe("function");
     }, DIST_ENTRYPOINT_LOAD_TIMEOUT_MS);

@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createConfigHandler } from "../../src/plugin-handlers/config-handler.js";
-import { AGENT_NAMES } from "../../src/shared/index.js";
+import { AGENT_NAMES } from "../../src/shared/agent/index.js";
 
 describe("createConfigHandler", () => {
-    it("preserves user command collisions and emits only supported command fields", async () => {
-        const plan = { template: "User plan $ARGUMENTS", agent: "plan", subtask: false };
-        const config = { command: { plan } };
-        await createConfigHandler()(config);
-        expect(config.command.plan).toEqual(plan);
-        expect(config.command.task).toBeDefined();
-        expect(config.command.task).not.toHaveProperty("argumentHint");
-    });
-
     it("forces Commander as default and demotes native plan/build agents", async () => {
         const config = {
             default_agent: "plan",
@@ -62,7 +53,7 @@ describe("createConfigHandler", () => {
         });
     });
 
-    it("inherits global permission config for every orchestrator agent", async () => {
+    it("overlays global permission config onto the Commander gate", async () => {
         const config = {
             permission: {
                 question: "allow",
@@ -76,22 +67,16 @@ describe("createConfigHandler", () => {
 
         await createConfigHandler()(config);
 
-        for (const agentName of Object.values(AGENT_NAMES)) {
-            if (agentName === AGENT_NAMES.COMMANDER) {
-                expect(config.agent[agentName].permission).toEqual({
-                    "*": "deny",
-                    task: "allow",
-                    question: "allow",
-                    edit: "deny",
-                    bash: {
-                        "*": "ask",
-                        "git status*": "allow",
-                    },
-                });
-                continue;
-            }
-            expect(config.agent[agentName].permission).toEqual(config.permission);
-        }
+        expect(config.agent[AGENT_NAMES.COMMANDER].permission).toEqual({
+            "*": "deny",
+            task: "allow",
+            question: "allow",
+            edit: "deny",
+            bash: {
+                "*": "ask",
+                "git status*": "allow",
+            },
+        });
     });
 
     it("preserves user model and agent-specific permission overrides", async () => {
@@ -111,9 +96,6 @@ describe("createConfigHandler", () => {
                     },
                     temperature: 0.2,
                 },
-                [AGENT_NAMES.WORKER]: {
-                    model: "anthropic/claude-opus-4-5-20251101",
-                },
             },
         };
 
@@ -130,8 +112,6 @@ describe("createConfigHandler", () => {
             bash: "ask",
             websearch: "allow",
         });
-        expect(config.agent[AGENT_NAMES.WORKER].model).toBe("anthropic/claude-opus-4-5-20251101");
-        expect(config.agent[AGENT_NAMES.WORKER].permission).toEqual(config.permission);
     });
 
     it("merges string global permission with object agent permissions", async () => {
@@ -152,10 +132,9 @@ describe("createConfigHandler", () => {
             "*": "allow",
             edit: "deny",
         });
-        expect(config.agent[AGENT_NAMES.PLANNER].permission).toBe("allow");
     });
 
-    it("emits only documented OpenCode agent config fields for generated agents", async () => {
+    it("emits only documented OpenCode agent config fields for the generated agent", async () => {
         const config = {};
 
         await createConfigHandler()(config);
@@ -163,10 +142,6 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.COMMANDER]).not.toHaveProperty("maxTokens");
         expect(config.agent[AGENT_NAMES.COMMANDER]).not.toHaveProperty("thinking");
         expect(config.agent[AGENT_NAMES.COMMANDER]).not.toHaveProperty("tools");
-        expect(config.agent[AGENT_NAMES.PLANNER]).not.toHaveProperty("maxTokens");
-        expect(config.agent[AGENT_NAMES.PLANNER]).not.toHaveProperty("tools");
-        expect(config.agent[AGENT_NAMES.WORKER]).not.toHaveProperty("tools");
-        expect(config.agent[AGENT_NAMES.REVIEWER]).not.toHaveProperty("tools");
     });
 
     it("embeds the delegate-only Commander prompt", async () => {
@@ -250,17 +225,15 @@ describe("createConfigHandler", () => {
         expect(config.agent.plan).not.toEqual(userPlan);
     });
 
-    it("leaves orchestrator roles and unrelated custom agents untouched by native unblocking", async () => {
+    it("leaves unrelated custom agents untouched by native unblocking", async () => {
         const config = {
             agent: {
-                [AGENT_NAMES.PLANNER]: { hidden: true, disable: true },
                 "my-custom-agent": { hidden: true, disable: true, mode: "primary" },
             },
         };
 
         await createConfigHandler()(config);
 
-        expect(config.agent[AGENT_NAMES.PLANNER]).toMatchObject({ mode: "subagent", hidden: true, disable: true });
         expect(config.agent["my-custom-agent"]).toEqual({ hidden: true, disable: true, mode: "primary" });
     });
 
@@ -277,9 +250,6 @@ describe("createConfigHandler", () => {
         const config = {
             agentConcurrency: {
                 commander: 1,
-                planner: 10,
-                worker: 10,
-                reviewer: 10,
             },
             modelConcurrency: {
                 "anthropic/claude-sonnet-4-5-20250929": 2,
@@ -295,9 +265,6 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.COMMANDER].mode).toBe("primary");
         expect(config.agentConcurrency).toEqual({
             commander: 1,
-            planner: 10,
-            worker: 10,
-            reviewer: 10,
         });
     });
 });

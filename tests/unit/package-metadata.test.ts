@@ -3,9 +3,16 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 interface PackageMetadata {
+    name?: string;
+    displayName?: string;
     description?: string;
     version?: string;
+    author?: string;
+    license?: string;
     homepage?: string;
+    repository?: {
+        url?: string;
+    };
     bin?: Record<string, string>;
     scripts?: Record<string, string>;
     files?: string[];
@@ -14,75 +21,56 @@ interface PackageMetadata {
     };
 }
 
-function readCargoWorkspaceLicense(): string {
-    const cargoToml = readFileSync(resolve(process.cwd(), "Cargo.toml"), "utf8");
-    const workspacePackage = cargoToml.match(/\[workspace\.package\]([\s\S]*?)(?:\n\[|$)/);
-    const licenseMatch = workspacePackage?.[1].match(/license\s*=\s*"([^"]+)"/);
-    if (!licenseMatch) throw new Error("Cargo.toml is missing the workspace package license.");
-    return licenseMatch[1];
-}
-
 function readPackageMetadata(): PackageMetadata {
     return JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as PackageMetadata;
 }
 
-function readCargoWorkspaceVersion(): string {
-    const cargoToml = readFileSync(resolve(process.cwd(), "Cargo.toml"), "utf8");
-    const workspacePackage = cargoToml.match(/\[workspace\.package\]([\s\S]*?)(?:\n\[|$)/);
-    if (!workspacePackage) {
-        throw new Error("Cargo.toml is missing the [workspace.package] section.");
-    }
-    const versionMatch = workspacePackage[1].match(/version\s*=\s*"([^"]+)"/);
-    if (!versionMatch) {
-        throw new Error("Cargo.toml [workspace.package] is missing a version field.");
-    }
-    return versionMatch[1];
-}
+const FORK_URL = "https://github.com/NiceLookinGuy/opencode-hard-orchestration";
 
 describe("package metadata", () => {
-    it("describes the actual four-agent architecture", () => {
+    it("carries the fork identity", () => {
+        const metadata = readPackageMetadata();
+
+        expect(metadata.name).toBe("opencode-hard-orchestration");
+        expect(metadata.displayName).toBe("OpenCode Hard Orchestration");
+        expect(metadata.version).toBe("0.1.0");
+        expect(metadata.author).toBe("NiceLookinGuy");
+    });
+
+    it("describes the hard-orchestration core", () => {
         const metadata = readPackageMetadata();
 
         expect(metadata.description).toContain("Commander");
-        expect(metadata.description).toContain("Planner");
-        expect(metadata.description).toContain("Worker");
-        expect(metadata.description).toContain("Reviewer");
-        expect(metadata.description).not.toContain("Coder");
+        expect(metadata.description).not.toContain("Planner");
+        expect(metadata.description).not.toContain("Reviewer");
     });
 
-    it("routes public support links to GitHub issues", () => {
+    it("routes repository, homepage, and support links to the fork", () => {
         const metadata = readPackageMetadata();
-        const issueURL = "https://github.com/agnusdei1207/opencode-orchestrator/issues";
 
-        expect(metadata.homepage).toBe("https://agnusdei1207.github.io/opencode-orchestrator/");
-        expect(metadata.bugs?.url).toBe(issueURL);
+        expect(metadata.repository?.url).toBe(`git+${FORK_URL}.git`);
+        expect(metadata.homepage).toBe(FORK_URL);
+        expect(metadata.bugs?.url).toBe(`${FORK_URL}/issues`);
     });
 
-    it("keeps the Cargo workspace version in sync with the npm package version", () => {
+    it("ships the MIT license", () => {
         const metadata = readPackageMetadata();
-        const cargoVersion = readCargoWorkspaceVersion();
 
-        expect(metadata.version).toBeDefined();
-        expect(cargoVersion).toBe(metadata.version);
-    });
-
-    it("uses the repository MIT license for npm and Cargo packages", () => {
-        const metadata = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as { license?: string };
         expect(readFileSync(resolve(process.cwd(), "LICENSE"), "utf8")).toContain("MIT License");
         expect(metadata.license).toBe("MIT");
-        expect(readCargoWorkspaceLicense()).toBe("MIT");
     });
 
-    it("exposes the documented orchestrator CLI through the built launcher", () => {
+    it("ships only the importable plugin, README, and license", () => {
         const metadata = readPackageMetadata();
 
-        expect(metadata.bin).toEqual({ orchestrator: "dist/cli.js" });
+        expect(metadata.files).toEqual(["dist", "README.md", "LICENSE"]);
+        expect(metadata.bin).toBeUndefined();
     });
 
-    it("tails the development log through the cross-platform Node helper", () => {
+    it("keeps only the build and test scripts", () => {
         const metadata = readPackageMetadata();
+        const scripts = metadata.scripts ?? {};
 
-        expect(metadata.scripts?.log).toBe("node scripts/tail-log.mjs");
-        expect(metadata.files).toContain("scripts/tail-log.mjs");
+        expect(Object.keys(scripts).sort()).toEqual(["build", "test", "test:coverage"]);
     });
 });

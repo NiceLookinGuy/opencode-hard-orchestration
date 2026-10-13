@@ -1,14 +1,6 @@
 # Dependencies
 node_modules/
 
-# Rust build cache
-target/
-
-# Build outputs. Release binaries are rebuilt from the exact tag by the hosted
-# five-platform matrix before npm publishing.
-dist/
-bin/
-
 # IDE
 .idea/
 .vscode/

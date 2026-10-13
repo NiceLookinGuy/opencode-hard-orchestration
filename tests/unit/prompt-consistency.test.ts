@@ -1,11 +1,10 @@
 /**
  * Prompt Consistency Guards
  *
- * Structural invariants over the composed agent prompts and the prompt
+ * Structural invariants over the composed Commander prompt and the prompt
  * fragment sources. These exist because prompt defects are invisible to
  * type-checking and snapshots alone: a fragment can be exported but never
- * composed (dead prompt), or two fragments can teach the same agent
- * conflicting schemas. Each test here encodes an invariant that was
+ * composed (dead prompt). Each test here encodes an invariant that was
  * violated at least once in the audit that introduced this file.
  */
 
@@ -33,13 +32,7 @@ function listFiles(directory: string): string[] {
     return files;
 }
 
-const TERMINAL_AGENTS = [
-    AGENT_NAMES.PLANNER,
-    AGENT_NAMES.WORKER,
-    AGENT_NAMES.REVIEWER,
-] as const;
-
-const ALL_AGENTS = [AGENT_NAMES.COMMANDER, ...TERMINAL_AGENTS] as const;
+const ALL_AGENTS = [AGENT_NAMES.COMMANDER] as const;
 
 describe("Prompt Consistency Guards", () => {
     it("does not teach the retired call_agent tool", () => {
@@ -79,46 +72,6 @@ describe("Prompt Consistency Guards", () => {
             deadExports,
             `Dead prompt exports (exported but never composed):\n${deadExports.join("\n")}`,
         ).toEqual([]);
-    });
-
-    it("teaches exactly one TODO hierarchy schema (M/T/S) to every agent", () => {
-        // todo.md is the shared contract between all four agents. The audit
-        // found three competing schemas (M1/T1.1/S1.1.1, G1/P1.1/T1.1.1,
-        // T1/S1.1) taught to the same agents. Only the M/T/S scheme may
-        // appear in composed prompts.
-        for (const name of ALL_AGENTS) {
-            const prompt = AGENTS[name].systemPrompt;
-            expect(prompt, `${name}: legacy G-level TODO ids`).not.toMatch(/\bG1:/);
-            expect(prompt, `${name}: legacy P-level TODO ids`).not.toMatch(/\bP1\.\d/);
-        }
-        // The agents that create or update todo.md must know the canonical scheme.
-        for (const name of [AGENT_NAMES.PLANNER, AGENT_NAMES.REVIEWER]) {
-            const prompt = AGENTS[name].systemPrompt;
-            expect(prompt, `${name}: must teach M/T/S schema`).toMatch(/\bM1\b/);
-            expect(prompt, `${name}: must teach M/T/S schema`).toMatch(/\bS1\.\d\.\d/);
-        }
-    });
-
-    it("never positively instructs a terminal agent to spawn or delegate", () => {
-        // Terminal agents (Planner/Worker/Reviewer) must not receive any
-        // instruction to USE delegate_task ??only prohibitions.
-        // The audit found the Worker workflow instructing delegate_task use
-        // while the Worker forbidden-list banned it (and the tool isn't even
-        // granted to workers by prompt-routing).
-        for (const name of TERMINAL_AGENTS) {
-            const prompt = AGENTS[name].systemPrompt;
-            const offending = prompt
-                .split("\n")
-                .filter((line) => /delegate_task/i.test(line))
-                // A line counts as a prohibition when it negates the ability
-                // (NEVER/not/forbidden/cannot/only) or is the role-matrix row
-                // marking the capability "no" for terminal agents.
-                .filter((line) => !/NEVER|not|forbidden|only|cannot|\bno\b/i.test(line));
-            expect(
-                offending,
-                `${name}: lines that mention delegation without negation:\n${offending.join("\n")}`,
-            ).toEqual([]);
-        }
     });
 
     it("uses each XML section tag at most once per composed prompt", () => {
@@ -167,16 +120,5 @@ describe("Prompt Consistency Guards", () => {
         expect(prompt).toContain("Delegate implementation to `build`");
         expect(prompt).toContain("ALWAYS break work into focused subtasks");
         expect(prompt).toContain("You CANNOT read files, run commands, edit code");
-    });
-
-    it("preserves mission continuity and completion artifacts in the subagent prompts", () => {
-        for (const name of TERMINAL_AGENTS) {
-            const prompt = AGENTS[name].systemPrompt;
-            for (const text of [".opencode/todo.md", ".opencode/sync-issues.md", ".opencode/verification-checklist.md"]) {
-                expect(prompt, name).toContain(text);
-            }
-            expect(prompt, name).toMatch(/pause|abort/i);
-            expect(prompt, name).toMatch(/failed checks/i);
-        }
     });
 });

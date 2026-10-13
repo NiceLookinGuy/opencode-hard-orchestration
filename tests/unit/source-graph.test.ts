@@ -91,7 +91,7 @@ describe("production source graph", () => {
     const graph = buildSourceGraph(files);
 
     it("contains no source file disconnected from the shipped entrypoints", () => {
-        const entrypoints = ["index.ts", "cli.ts"].map(file => path.join(SRC_ROOT, file));
+        const entrypoints = ["index.ts"].map(file => path.join(SRC_ROOT, file));
         const reached = new Set(entrypoints.flatMap(entrypoint => [...reachableFrom(graph, entrypoint)]));
         const unreachable = files.filter(file => !reached.has(file));
         expect(relative(unreachable)).toEqual([]);
