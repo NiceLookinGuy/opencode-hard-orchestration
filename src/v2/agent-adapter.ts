@@ -2,7 +2,7 @@ import type { Plugin } from "@opencode/plugin";
 import { AGENTS } from "../agents/definitions.js";
 import { scout } from "../agents/scout.js";
 import { AGENT_NAMES } from "../shared/agent/index.js";
-import { NATIVE_DEMOTED_TYPES, NATIVE_SUBAGENT_TYPES } from "../plugin-handlers/config-handler.js";
+import { NATIVE_BIDIRECTIONAL_TYPES, NATIVE_SUBAGENT_TYPES } from "../plugin-handlers/config-handler.js";
 import { COMMANDER_GATE, SCOUT_RULESET } from "./permission-gate.js";
 import { rewriteCommanderPromptForV2 } from "./prompt-adapter.js";
 
@@ -33,11 +33,11 @@ export function registerV2Agents(context: Plugin.Context) {
             if (!editor.get(name)) continue;
             editor.update(name, agent => { agent.hidden = false; });
         }
-        for (const name of NATIVE_DEMOTED_TYPES) {
+        for (const name of NATIVE_BIDIRECTIONAL_TYPES) {
             if (!editor.get(name)) continue;
             editor.update(name, agent => {
                 agent.hidden = false;
-                agent.mode = "subagent";
+                agent.mode = "all";
             });
         }
         editor.default(AGENT_NAMES.COMMANDER);

@@ -52,17 +52,25 @@ general, plan, summary, title).
    Action names mirror the live native `explore` agent.
 5. The v2 adapter rewrites the Commander prompt: `task(subagent_type=` →
    `subagent(agent=`, `` `subagent_type` `` → `` `agent` ``, and
-   `` `task` `` → `` `subagent` ``. The v1 prompt source and v1 config handler
-   are unchanged; the v1 gate and tool names stay as they are.
+   `` `task` `` → `` `subagent` ``. The v1 prompt source is unchanged; v1
+   keeps its `task` tool name and its gate.
 6. scout is not added to the `AGENTS` registry, so the v1 path never
    registers it and the v1 agent-definition invariants stay intact.
+7. `plan`/`build` get `mode: "all"` on both paths (the shared
+   `NATIVE_BIDIRECTIONAL_TYPES` loop in the config handler and the v2
+   adapter): they stay selectable primary agents in the TUI switcher (filters
+   `mode !== "subagent"`) and remain delegation targets (the subagent catalog
+   filters `mode !== "primary"`). Both host schemas accept it — v1
+   `AgentConfig.mode` and v2 `Config.Agent` both union
+   `"subagent" | "primary" | "all"` — so v1 and v2 behavior match.
 
 ## Consequences
 
 - Verified on an isolated OpenCode 2.0.32 server: `scout` exists with mode
-  `subagent`, and Commander's permissions are exactly the three gate rules.
-  Unit tests pin the ruleset, the hook behavior, the tool strip, the prompt
-  rewrite, and cleanup disposal.
+  `subagent`, `plan`/`build` report mode `all` with `hidden: false`, and
+  Commander's permissions are exactly the three gate rules. Unit tests pin the
+  ruleset, the hook behavior, the tool strip, the prompt rewrite, and cleanup
+  disposal.
 - Override parity with v1 breaks: the v1 gate is a registration default that
   user config may override, while the v2 hook cannot be overridden by
   configuration. The v2 gate is intentionally harder; user config can still

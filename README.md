@@ -11,7 +11,7 @@ Installing the plugin turns every OpenCode session into a delegation loop:
 
 - **Forced default Commander.** `default_agent` is set to `Commander` on install, so requests land on the orchestrator instead of a native agent.
 - **Permission hard gate.** Commander can delegate and ask, and nothing else. OpenCode 1 registers the permission `{"*": "deny", "task": "allow", "question": "allow"}`; OpenCode 2 replaces Commander's `permissions` ruleset with the same gate, enforces it again in a `permission.evaluate` hook, and strips every other tool from Commander requests.
-- **Native subagents unblocked.** `explore`, `general`, and native `scout` are unhidden when the host exposes them, and `plan`/`build` are demoted to subagents so Commander can hand research and implementation to them.
+- **Native agents unblocked.** `explore`, `general`, and native `scout` are unhidden when the host exposes them, and `plan`/`build` are set to `mode: "all"`: they stay selectable in the TUI agent switcher and remain delegation targets for Commander (the switcher hides `mode: "subagent"`, the delegation catalog hides `mode: "primary"`).
 - **Scout subagent.** `scout` is research-only: it version-matches dependencies, answers from external docs, cites exact URLs, and never edits code. Its ruleset allows `read`, `grep`, `glob`, `webfetch`, and `websearch`, and denies subagent recursion. OpenCode 2 has no native scout, so the v2 adapter upserts one; on OpenCode 1 scout is a host-native type that gets unblocked.
 - **User overrides win on OpenCode 1.** There the gate is a registration default, so global `permission` and `agent.Commander.permission` override it. On OpenCode 2 the gate is enforced at request time and cannot be overridden by configuration.
 
@@ -54,7 +54,7 @@ OpenCode 2 resolves an absolute directory entry to `<directory>/server` (or `<di
 
 ## Use
 
-Send a request. Commander interviews you with `question` until the task is clear, then delegates through the native delegation tool — `task` on OpenCode 1, `subagent` on OpenCode 2. There are no slash commands. Its delegate pool is `explore`, `general`, `scout`, plus demoted `plan` and `build`.
+Send a request. Commander interviews you with `question` until the task is clear, then delegates through the native delegation tool — `task` on OpenCode 1, `subagent` on OpenCode 2. There are no slash commands. Its delegate pool is `explore`, `general`, `scout`, plus `plan` and `build` (mode `all`: selectable and delegatable).
 
 ## Configuration
 

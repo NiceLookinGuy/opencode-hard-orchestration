@@ -36,9 +36,14 @@ automatic default-agent takeover and build/plan demotion.
    behavior), overriding any user `default_agent`.
 4. The native OpenCode agent types `explore`, `general`, `scout`, `plan`, and
    `build` are unblocked when present: `hidden: true` and `disable: true` are
-   stripped, and `plan`/`build` are forced to `mode: "subagent"` (entries are
-   created when absent in OpenCode 1 config). Planner, Worker, and Reviewer stay
-   hidden presets, and capitalized names such as `Plan` are untouched.
+   stripped, and `plan`/`build` are forced to `mode: "all"` (entries are
+   created when absent in OpenCode 1 config). `"all"` keeps them selectable in
+   the TUI agent switcher and delegatable by Commander; the switcher filters
+   out `"subagent"` and the delegation catalog filters out `"primary"`.
+   Planner, Worker, and Reviewer stay hidden presets, and capitalized names
+   such as `Plan` are untouched.
+   **[Originally `mode: "subagent"`; revised to `"all"` so plan/build stay in
+   the TUI agent switcher. Both host schemas accept `"all"`; see ADR-0027.]**
    **[Planner, Worker, and Reviewer were removed in the fork (ADR-0026).]**
 5. Agent descriptions are unchanged. Only the lowercase native names are
    normalized.

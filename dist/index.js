@@ -164,7 +164,7 @@ var COMMANDER_DEFAULT_PERMISSION = {
   question: "allow"
 };
 var NATIVE_SUBAGENT_TYPES = ["explore", "general", "scout"];
-var NATIVE_DEMOTED_TYPES = ["plan", "build"];
+var NATIVE_BIDIRECTIONAL_TYPES = ["plan", "build"];
 function isPermissionAction(value) {
   return value === "ask" || value === "allow" || value === "deny";
 }
@@ -207,7 +207,7 @@ function orchestratorAgentDefaults() {
 }
 function unblockNativeSubagentTypes(existingAgents) {
   const agents = { ...existingAgents };
-  for (const name of [...NATIVE_SUBAGENT_TYPES, ...NATIVE_DEMOTED_TYPES]) {
+  for (const name of [...NATIVE_SUBAGENT_TYPES, ...NATIVE_BIDIRECTIONAL_TYPES]) {
     const agent = agents[name];
     if (agent === void 0) continue;
     const cleaned = { ...agent };
@@ -215,8 +215,8 @@ function unblockNativeSubagentTypes(existingAgents) {
     if (cleaned.disable === true) delete cleaned.disable;
     agents[name] = cleaned;
   }
-  for (const name of NATIVE_DEMOTED_TYPES) {
-    agents[name] = { ...agents[name] ?? {}, mode: "subagent" };
+  for (const name of NATIVE_BIDIRECTIONAL_TYPES) {
+    agents[name] = { ...agents[name] ?? {}, mode: "all" };
   }
   return agents;
 }
@@ -296,11 +296,11 @@ function registerV2Agents(context) {
         agent.hidden = false;
       });
     }
-    for (const name of NATIVE_DEMOTED_TYPES) {
+    for (const name of NATIVE_BIDIRECTIONAL_TYPES) {
       if (!editor.get(name)) continue;
       editor.update(name, (agent) => {
         agent.hidden = false;
-        agent.mode = "subagent";
+        agent.mode = "all";
       });
     }
     editor.default(AGENT_NAMES.COMMANDER);

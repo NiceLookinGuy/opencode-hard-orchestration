@@ -1,7 +1,7 @@
 /**
  * Plugin Handlers - Config Handler
  *
- * Registers the Commander agent and unblocks the native subagent types.
+ * Registers the Commander agent and unblocks the native agent types.
  */
 
 import type { Config } from "@opencode-ai/plugin";
@@ -30,7 +30,12 @@ export const COMMANDER_DEFAULT_PERMISSION = {
 
 export const NATIVE_SUBAGENT_TYPES = ["explore", "general", "scout"] as const;
 
-export const NATIVE_DEMOTED_TYPES = ["plan", "build"] as const;
+/**
+ * Native types set to mode "all": selectable primary agents that are also
+ * valid delegation targets, unlike NATIVE_SUBAGENT_TYPES which stay
+ * delegate-only.
+ */
+export const NATIVE_BIDIRECTIONAL_TYPES = ["plan", "build"] as const;
 
 function isPermissionAction(value: unknown): value is PermissionAction {
     return value === "ask" || value === "allow" || value === "deny";
@@ -90,14 +95,16 @@ function orchestratorAgentDefaults(): Record<string, AgentConfig> {
 
 /**
  * Native OpenCode agent types the orchestrator makes usable: the discovery
- * subagents are unhidden, and plan/build are demoted to subagents. Missing
- * plan/build entries are created; v1 config may create agents, v2 may not.
+ * subagents are unhidden, and plan/build become bidirectional agents
+ * (mode "all") so they stay selectable in the TUI agent switcher and remain
+ * delegation targets for Commander. Missing plan/build entries are created;
+ * v1 config may create agents, v2 may not.
  */
 function unblockNativeSubagentTypes(
     existingAgents: Record<string, AgentConfig>,
 ): Record<string, AgentConfig> {
     const agents: Record<string, AgentConfig> = { ...existingAgents };
-    for (const name of [...NATIVE_SUBAGENT_TYPES, ...NATIVE_DEMOTED_TYPES]) {
+    for (const name of [...NATIVE_SUBAGENT_TYPES, ...NATIVE_BIDIRECTIONAL_TYPES]) {
         const agent = agents[name];
         if (agent === undefined) continue;
         const cleaned = { ...agent };
@@ -105,8 +112,8 @@ function unblockNativeSubagentTypes(
         if (cleaned.disable === true) delete cleaned.disable;
         agents[name] = cleaned;
     }
-    for (const name of NATIVE_DEMOTED_TYPES) {
-        agents[name] = { ...(agents[name] ?? {}), mode: "subagent" };
+    for (const name of NATIVE_BIDIRECTIONAL_TYPES) {
+        agents[name] = { ...(agents[name] ?? {}), mode: "all" };
     }
     return agents;
 }

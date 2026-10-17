@@ -23,8 +23,10 @@ This decision records the strip, the rename, and what was deliberately kept.
    - Registration permission gate `{"*": "deny", "task": "allow", "question": "allow"}`,
      with precedence registration default < global `permission` < agent-specific.
    - Native subagent unblocking: `explore`/`general`/`scout` unhidden,
-     `plan`/`build` demoted to subagents (v1 creates missing plan/build entries;
-     v2 updates only host-created agents).
+     `plan`/`build` set to mode `all` so they stay selectable primary agents
+     and remain delegation targets (v1 creates missing plan/build entries;
+     v2 updates only host-created agents). **[Originally `"subagent"`;
+     revised in ADR-0027.]**
 3. Keep both reliability guards and their rationale:
    - Oversized tool-result truncation came from upstream PR #53; it caps message
      parts over 200,000 chars before the model request (v1

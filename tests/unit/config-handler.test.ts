@@ -3,7 +3,7 @@ import { createConfigHandler } from "../../src/plugin-handlers/config-handler.js
 import { AGENT_NAMES } from "../../src/shared/agent/index.js";
 
 describe("createConfigHandler", () => {
-    it("forces Commander as default and demotes native plan/build agents", async () => {
+    it("forces Commander as default and makes native plan/build bidirectional agents", async () => {
         const config = {
             default_agent: "plan",
             agent: {
@@ -15,8 +15,8 @@ describe("createConfigHandler", () => {
         await createConfigHandler()(config);
 
         expect(config.default_agent).toBe(AGENT_NAMES.COMMANDER);
-        expect(config.agent.build).toEqual({ mode: "subagent", hidden: false, model: "user/build" });
-        expect(config.agent.plan).toEqual({ mode: "subagent", hidden: false, prompt: "User planning prompt" });
+        expect(config.agent.build).toEqual({ mode: "all", hidden: false, model: "user/build" });
+        expect(config.agent.plan).toEqual({ mode: "all", hidden: false, prompt: "User planning prompt" });
     });
 
     it("installs hard orchestrator defaults on a fresh config", async () => {
@@ -30,8 +30,8 @@ describe("createConfigHandler", () => {
             permission: { "*": "deny", task: "allow", question: "allow" },
         });
         expect(config.agent[AGENT_NAMES.COMMANDER].prompt).toBeTruthy();
-        expect(config.agent.plan).toEqual({ mode: "subagent" });
-        expect(config.agent.build).toEqual({ mode: "subagent" });
+        expect(config.agent.plan).toEqual({ mode: "all" });
+        expect(config.agent.build).toEqual({ mode: "all" });
     });
 
     it("uses registration defaults only for absent agent configuration", async () => {
@@ -201,7 +201,7 @@ describe("createConfigHandler", () => {
         expect(config.agent[AGENT_NAMES.COMMANDER].permission).toBe("allow");
     });
 
-    it("unblocks the five native subagent types and leaves capitalized names alone", async () => {
+    it("unblocks the five native agent types and leaves capitalized names alone", async () => {
         const config = {
             agent: {
                 explore: { hidden: true, disable: true, model: "user/explore" },
@@ -219,8 +219,8 @@ describe("createConfigHandler", () => {
         expect(config.agent.explore).toEqual({ model: "user/explore" });
         expect(config.agent.general).toEqual({});
         expect(config.agent.scout).toEqual({});
-        expect(config.agent.plan).toEqual({ mode: "subagent", prompt: "user/plan" });
-        expect(config.agent.build).toEqual({ mode: "subagent" });
+        expect(config.agent.plan).toEqual({ mode: "all", prompt: "user/plan" });
+        expect(config.agent.build).toEqual({ mode: "all" });
         expect(config.agent.Plan).toEqual({ hidden: true, disable: true, mode: "primary" });
         expect(config.agent.plan).not.toEqual(userPlan);
     });

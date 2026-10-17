@@ -129,7 +129,7 @@ describe("OpenCode 2 plugin setup", () => {
         expect(defaults).toEqual(["Commander"]);
         expect(agents.get("explore")).toMatchObject({ mode: "subagent", hidden: false });
         expect(agents.get("general")).toMatchObject({ mode: "subagent", hidden: false });
-        expect(agents.get("plan")).toMatchObject({ mode: "subagent", hidden: false });
+        expect(agents.get("plan")).toMatchObject({ mode: "all", hidden: false });
         expect(agents.has("build")).toBe(false);
         expect(agents.get("scout")).toMatchObject({ mode: "subagent", hidden: false });
     });
