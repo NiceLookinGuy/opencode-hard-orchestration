@@ -58,6 +58,9 @@ are skipped, no permission gate is applied there because the v2
 `Agent.Info.permissions` shape is an action/resource/effect array with no
 verified equivalent for this gate, and `default_agent` is set through
 `editor.default`.
+**[Superseded by ADR-0027: on OpenCode 2.0.32 the transform upserts missing
+agents, `Agent.Info.permissions` carries a real ruleset, and the gate plus
+scout are implemented there.]**
 
 Known deviations and limitations:
 

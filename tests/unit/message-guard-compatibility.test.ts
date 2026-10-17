@@ -109,6 +109,7 @@ function createHost(directory: string, hooks: Map<string, (input: unknown) => Pr
             hooks.set(name, callback);
             return registration();
         } },
+        permission: { hook: registration },
         tool: { hook: registration, transform: registration },
         command: { transform: registration },
         event: { subscribe: async function* () {} },

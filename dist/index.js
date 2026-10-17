@@ -110,6 +110,48 @@ var AGENTS = {
   [AGENT_NAMES.COMMANDER]: commander
 };
 
+// src/agents/prompts/scout-research.ts
+var SCOUT_RESEARCH_PROMPT = `# SCOUT: EXTERNAL RESEARCH ONLY
+
+You are scout, the external research subagent. You answer questions about
+libraries, tools, APIs, and dependencies using documentation and sources
+outside this repository. You never modify the repository.
+
+## TOOLS
+
+- \`read\` the project manifests (package.json, lockfiles) to find the exact
+  versions in use.
+- \`grep\` and \`glob\` the installed packages when the source of the installed
+  version answers the question.
+- \`webfetch\` the canonical documentation, changelog, or release notes for the
+  installed version.
+- \`websearch\` only when you do not know the canonical URL.
+
+## RULES
+
+1. Version-match: pin every answer to the version this repository actually
+   depends on, not to the latest release.
+2. Cite exact URLs for every claim. No URL, no claim.
+3. Prefer primary sources: official docs, changelogs, release notes, and the
+   installed package source over blog posts and forum answers.
+4. Separate confirmed facts from inferences. Say what you could not verify.
+5. Never edit, create, or delete files. Never run shell commands.
+6. Never delegate to another subagent.
+
+## OUTPUT
+
+Return findings, each with the source URL and the repository version it applies
+to; then uncertainties and what would resolve them. Quote only the lines that
+matter \u2014 no raw file dumps.
+`;
+
+// src/agents/scout.ts
+var scout = {
+  id: "scout",
+  description: "External documentation and dependency research",
+  systemPrompt: SCOUT_RESEARCH_PROMPT
+};
+
 // src/shared/core/guards.ts
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -196,6 +238,38 @@ function createConfigHandler() {
   };
 }
 
+// src/v2/permission-gate.ts
+var COMMANDER_GATE = [
+  { action: "*", resource: "*", effect: "deny" },
+  { action: "subagent", resource: "*", effect: "allow" },
+  { action: "question", resource: "*", effect: "allow" }
+];
+var SCOUT_RULESET = [
+  { action: "*", resource: "*", effect: "deny" },
+  { action: "read", resource: "*", effect: "allow" },
+  { action: "read", resource: "*.env", effect: "ask" },
+  { action: "read", resource: "*.env.*", effect: "ask" },
+  { action: "read", resource: "*.env.example", effect: "allow" },
+  { action: "grep", resource: "*", effect: "allow" },
+  { action: "glob", resource: "*", effect: "allow" },
+  { action: "webfetch", resource: "*", effect: "allow" },
+  { action: "websearch", resource: "*", effect: "allow" },
+  { action: "subagent", resource: "*", effect: "deny" }
+];
+var COMMANDER_DELEGATION_ACTIONS = /* @__PURE__ */ new Set(["subagent", "question"]);
+var COMMANDER_GATE_MESSAGE = "Commander is hard-gated to subagent (delegate) and question (ask the user)";
+function enforceCommanderGate(evaluation) {
+  if (evaluation.agent !== AGENT_NAMES.COMMANDER) return;
+  if (COMMANDER_DELEGATION_ACTIONS.has(evaluation.action)) return;
+  evaluation.effect = "deny";
+  evaluation.message = COMMANDER_GATE_MESSAGE;
+}
+
+// src/v2/prompt-adapter.ts
+function rewriteCommanderPromptForV2(prompt) {
+  return prompt.replaceAll("task(subagent_type=", "subagent(agent=").replaceAll("`subagent_type`", "`agent`").replaceAll("`task`", "`subagent`");
+}
+
 // src/v2/agent-adapter.ts
 function registerV2Agents(context) {
   return context.agent.transform((editor) => {
@@ -203,11 +277,19 @@ function registerV2Agents(context) {
       editor.update(name, (agent) => {
         const primary = name === AGENT_NAMES.COMMANDER;
         agent.description = definition.description;
-        agent.system = definition.systemPrompt;
+        agent.system = primary ? rewriteCommanderPromptForV2(definition.systemPrompt) : definition.systemPrompt;
         agent.mode = primary ? "primary" : "subagent";
         agent.hidden = !primary;
+        if (primary) agent.permissions = [...COMMANDER_GATE];
       });
     }
+    editor.update(scout.id, (agent) => {
+      agent.description = scout.description;
+      agent.system = scout.systemPrompt;
+      agent.mode = "subagent";
+      agent.hidden = false;
+      agent.permissions = [...SCOUT_RULESET];
+    });
     for (const name of NATIVE_SUBAGENT_TYPES) {
       if (!editor.get(name)) continue;
       editor.update(name, (agent) => {
@@ -315,12 +397,14 @@ function truncateOversizedMessageParts(messages) {
 }
 
 // src/v2/setup.ts
+var COMMANDER_ALLOWED_TOOLS = /* @__PURE__ */ new Set(["subagent", "task", "question"]);
 async function setupV2(contextInput) {
   const context = contextInput;
   const registrations = [];
   try {
     registrations.push(await registerV2Agents(context));
     registrations.push(await registerMessageGuard(context));
+    registrations.push(await context.permission.hook("evaluate", enforceCommanderGate));
   } catch (error) {
     try {
       await disposeV2(registrations);
@@ -334,7 +418,16 @@ async function setupV2(contextInput) {
 async function registerMessageGuard(context) {
   return context.session.hook("context", (input) => {
     truncateOversizedMessageParts(input.messages);
+    restrictCommanderTools(input);
   });
+}
+function restrictCommanderTools(input) {
+  const tools = input.tools;
+  if (input.agent !== AGENT_NAMES.COMMANDER || tools === void 0) return;
+  if (!("subagent" in tools) && !("task" in tools)) return;
+  for (const name of Object.keys(tools)) {
+    if (!COMMANDER_ALLOWED_TOOLS.has(name)) delete tools[name];
+  }
 }
 async function disposeV2(registrations) {
   const results = await Promise.allSettled(registrations.map(

@@ -48,3 +48,4 @@ set.
 | [0024](0024-opencode-2-plugin-compatibility.md) | 2026-09-20 | OpenCode 2 plugin compatibility | Implemented (pre-fork) |
 | [0025](0025-hard-orchestrator-defaults.md) | 2026-10-13 21:21 | Hard orchestrator defaults on install | Accepted |
 | [0026](0026-hard-orchestration-fork-scope.md) | 2026-10-13 23:13 | Fork scope — OpenCode Hard Orchestration | Implemented |
+| [0027](0027-v2-hard-gate-and-scout.md) | 2026-10-18 04:44 | OpenCode 2 hard gate and scout subagent | Implemented |

@@ -10,10 +10,10 @@
 Installing the plugin turns every OpenCode session into a delegation loop:
 
 - **Forced default Commander.** `default_agent` is set to `Commander` on install, so requests land on the orchestrator instead of a native agent.
-- **Permission hard gate.** Commander is registered with `{"*": "deny", "task": "allow", "question": "allow"}` and a delegate-only system prompt: it can call the native `task` tool to delegate and `question` to ask you, and nothing else.
-- **Native subagents unblocked.** `explore`, `general`, and `scout` are unhidden, and `plan`/`build` are demoted to subagents so Commander can hand research and implementation to them.
-- **User overrides win.** The gate is a registration default. Global `permission` and `agent.Commander.permission` override it.
-- **OpenCode 2 limitation.** The v2 adapter can only update agents the host already created and has no `Agent.Info.permissions` equivalent for the gate, so forced default and subagent unblocking apply but the gate does not.
+- **Permission hard gate.** Commander can delegate and ask, and nothing else. OpenCode 1 registers the permission `{"*": "deny", "task": "allow", "question": "allow"}`; OpenCode 2 replaces Commander's `permissions` ruleset with the same gate, enforces it again in a `permission.evaluate` hook, and strips every other tool from Commander requests.
+- **Native subagents unblocked.** `explore`, `general`, and native `scout` are unhidden when the host exposes them, and `plan`/`build` are demoted to subagents so Commander can hand research and implementation to them.
+- **Scout subagent.** `scout` is research-only: it version-matches dependencies, answers from external docs, cites exact URLs, and never edits code. Its ruleset allows `read`, `grep`, `glob`, `webfetch`, and `websearch`, and denies subagent recursion. OpenCode 2 has no native scout, so the v2 adapter upserts one; on OpenCode 1 scout is a host-native type that gets unblocked.
+- **User overrides win on OpenCode 1.** There the gate is a registration default, so global `permission` and `agent.Commander.permission` override it. On OpenCode 2 the gate is enforced at request time and cannot be overridden by configuration.
 
 No missions, no task management, no plugin tools, no slash commands.
 
@@ -42,13 +42,23 @@ opencode plugin list
 
 To remove: delete the `opencode.json(c)` entry on OpenCode 1, or run `opencode plugin remove <installed-target>` on OpenCode 2 (the target shown by `opencode plugin list`).
 
+Local development on OpenCode 2 — point the config at the repository directory:
+
+```jsonc
+{
+  "plugins": ["/absolute/path/to/opencode-hard-orchestration"]
+}
+```
+
+OpenCode 2 resolves an absolute directory entry to `<directory>/server` (or `<directory>/index`), not the package entrypoint, so this repository ships a root `server.js` shim that re-exports `dist/`. The shim is not part of the npm/git package (`files` excludes it); git installs resolve the package entrypoint and never need it.
+
 ## Use
 
-Send a request. Commander interviews you with `question` until the task is clear, then delegates through the native `task` tool. There are no slash commands. Its delegate pool is `explore`, `general`, `scout`, plus demoted `plan` and `build`.
+Send a request. Commander interviews you with `question` until the task is clear, then delegates through the native delegation tool — `task` on OpenCode 1, `subagent` on OpenCode 2. There are no slash commands. Its delegate pool is `explore`, `general`, `scout`, plus demoted `plan` and `build`.
 
 ## Configuration
 
-No plugin options. Installing the plugin forces `default_agent = "Commander"` and registers the gate `{"*": "deny", "task": "allow", "question": "allow"}`. Permission precedence is registration default < global `permission` < `agent.Commander.permission`, so your overrides always win. Permissions of other agents are untouched.
+No plugin options. Installing the plugin forces `default_agent = "Commander"` and gates Commander to delegation and `question`. On OpenCode 1 the gate is the registration permission `{"*": "deny", "task": "allow", "question": "allow"}` with precedence registration default < global `permission` < `agent.Commander.permission`, so your overrides always win. On OpenCode 2 the gate is a hard `permissions` ruleset (`*` deny, `subagent`/`question` allow) re-enforced by a `permission.evaluate` hook, and Commander requests are reduced to those two tools. Permissions of other agents are untouched; `scout` carries its own research ruleset.
 
 ## Reliability hooks
 
