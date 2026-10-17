@@ -67,10 +67,10 @@ describe("package metadata", () => {
         expect(metadata.bin).toBeUndefined();
     });
 
-    it("keeps only the build and test scripts", () => {
+    it("keeps only the dist build and test scripts", () => {
         const metadata = readPackageMetadata();
         const scripts = metadata.scripts ?? {};
 
-        expect(Object.keys(scripts).sort()).toEqual(["build", "test", "test:coverage"]);
+        expect(Object.keys(scripts).sort()).toEqual(["build:dist", "test", "test:coverage"]);
     });
 });

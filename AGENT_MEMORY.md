@@ -1,47 +1,40 @@
 # Agent Memory — opencode-hard-orchestration
 
-Last updated: 2026-10-13 23:15 KST
+Last updated: 2026-10-18 07:05 KST
 
 ## Current task
 
-Fork rework of `agnusdei1207/opencode-orchestrator` @ 2.0.15 into
-`opencode-hard-orchestration` 0.1.0 is published: GitHub fork
-`https://github.com/NiceLookinGuy/opencode-hard-orchestration` exists and
-`main` (3522429 at time of push) is pushed there. Remaining Phase 2 work is
-verifying the install forms against the real repo.
+Phase 2b is complete: both documented install forms are now verified against
+the real repo, and the OpenCode 2 Git install failure
+(`NpmInstallFailedError (cause: git dep preparation failed)`) is fixed and
+pushed.
 
 ## Last completed step
 
-- Phase 2a publish: forked upstream to
-  `NiceLookinGuy/opencode-hard-orchestration` via
-  `gh repo fork --clone=false --fork-name` (note: `--remote` is rejected by
-  gh when a repo argument is given; remotes were rearranged manually).
-  Local remotes: `origin` = fork (fetch+push), `upstream` =
-  `agnusdei1207/opencode-orchestrator`. Pushed `main` f88f00a..3522429
-  (fast-forward, no force). No upstream writes and no PRs.
-- Phase 1b docs/meta (local, now pushed): README rewritten for the fork
-  (MIT badge only, git installs, no npm/options/missions); LICENSE keeps the
-  original text and adds "Copyright (c) 2026 NiceLookinGuy (fork
-  modifications)"; CONTRIBUTING.md, `user-prompt/`, landing files
-  (`public/**`, root `index.html`, `css/`, `js/`, `assets/`, `favicon.svg`,
-  `.nojekyll`) deleted.
-- docs pruned to ADR-0021 (superseded by ADR-0026), ADR-0022/0024/0025
-  (fork annotations; 0024 upstream issue link stripped), new
-  `docs/adr/0026-hard-orchestration-fork-scope.md`, ADR index rewritten.
-  Deleted: SYSTEM_ARCHITECTURE, KNOWLEDGE-SEARCH-DEEP-DIVE,
-  DEVELOPERS_NOTE, assets, histories, release, reviews, ADRs 0001-0020/0023.
-- Baseline and post-change `npm test`: 15 files / 86 tests pass.
-- Evidence for doc claims: forced `default_agent` and gate in
-  `src/plugin-handlers/config-handler.ts:25-29,137`; delegate-only prompt in
-  `src/agents/commander.ts`; v2 adapter `src/v2/agent-adapter.ts`; guards in
-  `src/index.ts:20-21`, `src/v2/setup.ts:28-32`,
-  `src/plugin-handlers/text-complete-handler.ts`.
+- Root cause: `opencode plugin add github:...` installs Git deps through
+  npm's `pacote`, which runs a nested `npm install` ("prepare") for any
+  package whose `package.json` declares `build`, `prepare`, `preinstall`,
+  `install`, `postinstall`, or `prepack` scripts, or `workspaces`. In the
+  compiled opencode binary that nested npm invocation is broken, so the
+  install dies with `git dep preparation failed`
+  (anomalyco/opencode#49704). Both plugin repos declared a `build` script.
+- Fix (this repo): renamed `"build"` → `"build:dist"` in `package.json`;
+  updated `.github/workflows/ci.yml`, `README.md` (with issue reference and
+  removal condition), `tests/unit/package-metadata.test.ts` (script-key pin),
+  and the `dist-integrity.test.ts` failure hint. `dist/` output unchanged.
+- Fix (caveman fork, separate repo): same rename plus `CHANGELOG.md` entry;
+  pushed there too.
+- Verification on opencode 2.0.32 (bundled Bun 1.4.2 used for local tooling):
+  `bun install`, `tsc --noEmit`, `vitest run` (15 files / 86 tests pass),
+  `bun run build:dist` (dist reproducible, `git status` clean for dist),
+  `opencode plugin add git+file://<clone>` succeeds, and a standalone TUI run
+  shows both server plugins loading and the Commander default agent active.
+- Baseline before the change: same typecheck, 15 files / 86 tests pass.
 
 ## Next exact step
 
-Phase 2b (needs user request): verify the v1 config git spec and v2
-`opencode plugin add github:...` install forms against
-`NiceLookinGuy/opencode-hard-orchestration`.
+None required. Pushes to `main` trigger CI; if a run fails, inspect the
+workflow log first.
 
 ## Incomplete items and why
 
@@ -51,29 +44,29 @@ Phase 2b (needs user request): verify the v1 config git spec and v2
 
 ## Key decisions
 
-- Strip scope: keep only Commander registration (forced default, delegate-only
-  prompt, hard gate), native subagent unblocking, and the two reliability
-  guards (oversized tool-result truncation, PR #53 rationale; v1 thinking-tag
-  cleanup, issue #50 rationale).
-- Removed: missions/mission loop, task tools, slash commands, plugin tools,
-  options system, knowledge/memory subsystems, Rust CLI, landing site,
-  `/server` split runtime.
-- `dist/` stays committed so git installs run without a build step; no npm
-  publish. Version reset to 0.1.0.
-- Minimal `customRendering` boolean read retained in `src/index.ts:16` as a
-  deliberate single-option exception (WebUI rendering regression, issue #52),
-  documented in ADR-0026.
+- Rename the dev build script to `build:dist` instead of keeping `build` and
+  waiting on the upstream fix; the same workaround is shipped by
+  `vercel/vercel-plugin` (vercel/vercel-plugin#314). `dist/` is committed, so
+  consumers never needed the script.
+- Keep version `0.1.0` and leave `package-metadata.test.ts`'s identity pin
+  untouched; git distribution updates by commit, not version.
+- Document the reason in `README.md` with the upstream issue link and a
+  removal condition (rename back once anomalyco/opencode#49704 is fixed).
 
 ## Rejected alternatives
 
-- Keeping mission/task machinery or the options system (contradicts the fork).
-- Publishing to npm (git-only distribution decided).
-- Deleting `customRendering` entirely (would regress WebUI rendering).
-- Documenting an unverified raw v2 config example for git specs (only the
-  verified v2 CLI form is documented).
+- Keeping `build` and relying on users to patch opencode (not actionable).
+- Deleting the script and documenting raw `node scripts/build.mjs` (worse DX,
+  breaks CI/README ergonomics).
+- Renaming to `compile`/`dist` (chose `build:dist` to match the ecosystem
+  precedent and the repo's existing `test:coverage` naming style).
+- Version bump to 0.1.1 (would churn the identity test for no install effect).
 
 ## Known risks
 
+- If anyone renames the script back to `build`, OpenCode 2 Git installs break
+  again until anomalyco/opencode#49704 is fixed. The README note and the
+  script-key test in `package-metadata.test.ts` guard this.
 - v2 gate gap: on OpenCode 2 installing the plugin does not restrict
   Commander's tools; only forced default and subagent unblocking apply.
 - Users who explicitly hide Commander may get host-defined default-agent
@@ -85,9 +78,9 @@ Phase 2b (needs user request): verify the v1 config git spec and v2
 
 1. AGENTS.md
 2. AGENT_MEMORY.md
-3. docs/adr/0026-hard-orchestration-fork-scope.md
-4. src/index.ts
-5. src/plugin-handlers/config-handler.ts
-6. src/v2/setup.ts
-7. README.md
-8. docs/adr/0025-hard-orchestrator-defaults.md
+3. package.json
+4. README.md (Install and Development sections)
+5. .github/workflows/ci.yml
+6. tests/unit/package-metadata.test.ts
+7. src/index.ts
+8. src/plugin-handlers/config-handler.ts

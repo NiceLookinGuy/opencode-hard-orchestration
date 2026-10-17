@@ -59,9 +59,11 @@ No plugin options. Installing the plugin forces `default_agent = "Commander"` an
 
 ```sh
 npm ci
-npm run build   # esbuild bundle + tsc declarations into dist/
-npm test        # vitest
+npm run build:dist   # esbuild bundle + tsc declarations into dist/
+npm test             # vitest
 ```
+
+The build script is `build:dist`, not `build`. npm's git-dependency prepare step runs a nested `npm install` for any package with a `build`, `prepare`, `preinstall`, `install`, `postinstall`, or `prepack` script, which fails inside the compiled OpenCode binary and breaks `opencode plugin add github:NiceLookinGuy/opencode-hard-orchestration` (anomalyco/opencode#49704). Rename it back only once that upstream issue is fixed.
 
 `dist/` is committed because git installs execute the built output; rebuild and commit it alongside source changes.
 

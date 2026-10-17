@@ -89,7 +89,7 @@ async function collectBareImports(bundlePath: string): Promise<Set<string>> {
 describe.skipIf(!existsSync(path.join(distDir, "index.js")))("dist bundle integrity", () => {
     it("ships every runtime bundle", () => {
         for (const bundlePath of SHIPPED_BUNDLES) {
-            expect(existsSync(path.join(repoRoot, bundlePath)), `${bundlePath} missing — run npm run build`).toBe(true);
+            expect(existsSync(path.join(repoRoot, bundlePath)), `${bundlePath} missing — run npm run build:dist`).toBe(true);
         }
     });
 
